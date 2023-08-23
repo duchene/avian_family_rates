@@ -1,0 +1,38 @@
+library(phangorn)
+library(ClockstaRX)
+load("alltrs.Rdata")
+
+
+# This uses the default branch length threshold of 5e-06, where shorter branches in the gene trees are excluded.
+
+crxdn <- diagnose.clocks(dntrs, sptr, clustering.boot.samps=100, pdf.file="crx_dn.pdf", log.branches = T)
+crxds <- diagnose.clocks(dstrs, sptr, clustering.boot.samps=100, pdf.file="crx_ds.pdf", log.branches = T)
+crxran <- diagnose.clocks(rantrs, sptr, clustering.boot.samps=100, pdf.file="crx_ran.pdf", log.branches = T)
+crxuce <- diagnose.clocks(ucetrs, sptr, clustering.boot.samps=100, pdf.file="crx_uce.pdf", log.branches = T)
+crxint <- diagnose.clocks(intrs, sptr, clustering.boot.samps=100, pdf.file="crx_int.pdf", log.branches = T)
+
+
+# Sample from the set of random trees.
+
+set.seed(1234)
+rantrs1 <- sample(rantrs, 10000)
+crxran1 <- diagnose.clocks(rantrs1, sptr, clustering.boot.samps=100, pdf.file="crx_ran_1.pdf", log.branches = T)
+set.seed(2345)
+rantrs2 <- sample(rantrs, 10000)
+crxran2 <- diagnose.clocks(rantrs2, sptr, clustering.boot.samps=100, pdf.file="crx_ran_2.pdf", log.branches = T)
+set.seed(3456)
+rantrs3 <- sample(rantrs, 10000)
+crxran3 <- diagnose.clocks(rantrs3, sptr, clustering.boot.samps=100, pdf.file="crx_ran_3.pdf", log.branches = T)
+
+
+# Generate and run dnds trees. Extreme dnds values can arise from extreme (misleading) dn or ds estimates, so dnds branch lengths >10 were set to 10.
+
+dndstrs <- dntrs
+for(i in 1:length(dndstrs)){
+	dndstrs[[i]]$edge.length <- dndstrs[[i]]$edge.length / dstrs[[i]]$edge.length
+	if(any(is.na(dndstrs[[i]]$edge.length))) dndstrs[[i]]$edge.length[which(is.na(dndstrs[[i]]$edge.length))] <- mean(dndstrs[[i]]$edge.length[which(dndstrs[[i]]$edge.length != Inf)], na.rm = T)
+	if(any(dndstrs[[i]]$edge.length == Inf)) dndstrs[[i]]$edge.length[which(dndstrs[[i]]$edge.length == Inf)] <- mean(dndstrs[[i]]$edge.length[which(dndstrs[[i]]$edge.length != Inf)], na.rm = T)
+	if(any(dndstrs[[i]]$edge.length > 10)) dndstrs[[i]]$edge.length[which(dndstrs[[i]]$edge.length > 10)] <- 10
+	if(any(dndstrs[[i]]$edge.length < 1e-8)) dndstrs[[i]]$edge.length[which(dndstrs[[i]]$edge.length < 1e-8)] <- 1e-8
+}
+crxdnds <- diagnose.clocks(dndstrs, sptr, clustering.boot.samps=100, pdf.file="crx_dnds.pdf", log.branches = T)

@@ -1,0 +1,313 @@
+library(phangorn)
+library(ClockstaRX)
+library(ggplot2)
+library(reshape2)
+library(viridis)
+library(tidyverse)
+library(phylolm)
+library(ggridges)
+library(plotly)
+library(crosstalk)
+library(NELSI)
+library(colourvalues)
+source("~/Dropbox/Research/code/brsPerTslice.R")
+load("alltrs.Rdata")
+load("crx_dn.Rdata")
+load("crx_ds.Rdata")
+load("crx_dnds.Rdata")
+load("crx_ran_1.Rdata")
+load("crx_ran.Rdata")
+
+
+# Prepare data, including adding locus names to ClockstaRX outputs.
+
+sptr_unr <- unroot(sptr)
+rownames(crxdn[[1]]) <- names(dntrs)
+rownames(crxds[[1]]) <- names(dstrs)
+rownames(crxdnds[[1]]) <- names(dntrs)
+set.seed(1234)
+rownames(crxran1[[1]]) <- names(rantrs1)
+rownames(crxran_clocks[[1]]) <- names(rantrs)
+rownames(crxuce[[1]]) <- names(ucetrs)
+colnames(crxdn[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxds[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxdnds[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxran1[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxran_clocks[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxuce[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+
+
+# Extract the rate per gene per point in time - in intervals of 0.5My. This will not distinguish the rates along the two branches from the root, giving them the same rate.
+
+slices <- brsPerTslice(sptr, intsize = 0.2, unrootres = T)
+
+sliceratesdn <- matrix(NA, nrow = nrow(crxdn$raw.rates.matrix), ncol = length(slices))
+for(i in 1:length(slices)) for(j in 1:nrow(crxdn$raw.rates.matrix)) sliceratesdn[j, i] <- median(log(crxdn$raw.rates.matrix[j, slices[[i]]]), na.rm = T)
+for(j in 1:nrow(crxdn$raw.rates.matrix)) sliceratesdn[j,] <- sliceratesdn[j,] / median(sliceratesdn[j,], na.rm = T)
+colnames(sliceratesdn) <- names(slices)
+rownames(sliceratesdn) <- names(dntrs)
+
+sliceratesds <- matrix(NA, nrow = nrow(crxds$raw.rates.matrix), ncol = length(slices))
+for(i in 1:length(slices)) for(j in 1:nrow(crxds$raw.rates.matrix)) sliceratesds[j, i] <- median(log(crxds$raw.rates.matrix[j, slices[[i]]]), na.rm = T)
+for(j in 1:nrow(crxds$raw.rates.matrix)) sliceratesds[j,] <- sliceratesds[j,] / median(sliceratesds[j,], na.rm = T)
+colnames(sliceratesds) <- names(slices)
+rownames(sliceratesds) <- names(dstrs)
+
+sliceratesdnds <- matrix(NA, nrow = nrow(crxdnds$raw.rates.matrix), ncol = length(slices))
+for(i in 1:length(slices)) for(j in 1:nrow(crxdnds$raw.rates.matrix)) sliceratesdnds[j, i] <- median(log(crxdnds$raw.rates.matrix[j, slices[[i]]]), na.rm = T)
+for(j in 1:nrow(crxdnds$raw.rates.matrix)) sliceratesdnds[j,] <- sliceratesdnds[j,] / median(sliceratesdnds[j,], na.rm = T)
+colnames(sliceratesdnds) <- names(slices)
+rownames(sliceratesdnds) <- names(dntrs)
+
+sliceratesran <- matrix(NA, nrow = nrow(crxran1$raw.rates.matrix), ncol = length(slices))
+for(i in 1:length(slices)) for(j in 1:nrow(crxran1$raw.rates.matrix)) sliceratesran[j, i] <- median(log(crxran1$raw.rates.matrix[j, slices[[i]]]), na.rm = T)
+for(j in 1:nrow(crxran1$raw.rates.matrix)) sliceratesran[j,] <- sliceratesran[j,] / median(sliceratesran[j,], na.rm = T)
+colnames(sliceratesran) <- names(slices)
+rownames(sliceratesran) <- rownames(crxran1[[1]])
+
+
+# Plot rates through time and through the genome, including top and bottom for all data types - for exploration only.
+
+pdf("Fig_rates_through_time.pdf", height = 12, width = 7, useDingbats = F)
+par(mfrow = c(3, 1))
+plot(as.numeric(colnames(sliceratesdn))*-1, predict(loess(apply(sliceratesdn, 2, median, na.rm = T) ~ as.numeric(colnames(sliceratesdn))*-1, span = 0.05)), type = "l", col = "red", ylim = c(0.35, 1.15), xlab = "Time (My)", ylab = "Relative rate within locus")
+lines(as.numeric(colnames(sliceratesdn))*-1, predict(loess(apply(sliceratesdn, 2, quantile, probs = 0.05, na.rm = T) ~ as.numeric(colnames(sliceratesdn))*-1, span = 0.05)), lty = 2, col = "red")
+lines(as.numeric(colnames(sliceratesdn))*-1, predict(loess(apply(sliceratesdn, 2, quantile, probs = 0.95, na.rm = T) ~ as.numeric(colnames(sliceratesdn))*-1, span = 0.05)), lty = 2, col = "red")
+abline(h = 1, lwd = 0.5)
+
+lines(as.numeric(colnames(sliceratesds))*-1, predict(loess(apply(sliceratesds, 2, median, na.rm = T) ~ as.numeric(colnames(sliceratesds))*-1, span = 0.05)), type = "l", col = "orange", ylim = c(0.65, 1.15))
+lines(as.numeric(colnames(sliceratesds))*-1, predict(loess(apply(sliceratesds, 2, quantile, probs = 0.05, na.rm = T) ~ as.numeric(colnames(sliceratesds))*-1, span = 0.05)), lty = 2, col = "orange")
+lines(as.numeric(colnames(sliceratesds))*-1, predict(loess(apply(sliceratesds, 2, quantile, probs = 0.95, na.rm = T) ~ as.numeric(colnames(sliceratesds))*-1, span = 0.05)), lty = 2, col = "orange")
+
+lines(as.numeric(colnames(sliceratesdnds))*-1, predict(loess(apply(sliceratesdnds, 2, median, na.rm = T) ~ as.numeric(colnames(sliceratesdnds))*-1, span = 0.05)), type = "l", col = "black", ylim = c(0.65, 1.15))
+lines(as.numeric(colnames(sliceratesdnds))*-1, predict(loess(apply(sliceratesdnds, 2, quantile, probs = 0.05, na.rm = T) ~ as.numeric(colnames(sliceratesdnds))*-1, span = 0.05)), lty = 2, col = "black")
+lines(as.numeric(colnames(sliceratesdnds))*-1, predict(loess(apply(sliceratesdnds, 2, quantile, probs = 0.95, na.rm = T) ~ as.numeric(colnames(sliceratesdnds))*-1, span = 0.05)), lty = 2, col = "black")
+
+lines(as.numeric(colnames(sliceratesran))*-1, predict(loess(apply(sliceratesran, 2, median, na.rm = T) ~ as.numeric(colnames(sliceratesran))*-1, span = 0.05)), type = "l", col = "purple", ylim = c(0.65, 1.15))
+lines(as.numeric(colnames(sliceratesran))*-1, predict(loess(apply(sliceratesran, 2, quantile, probs = 0.05, na.rm = T) ~ as.numeric(colnames(sliceratesran))*-1, span = 0.05)), lty = 2, col = "purple")
+lines(as.numeric(colnames(sliceratesran))*-1, predict(loess(apply(sliceratesran, 2, quantile, probs = 0.95, na.rm = T) ~ as.numeric(colnames(sliceratesran))*-1, span = 0.05)), lty = 2, col = "purple")
+
+abline(v = -66, lty = 2)
+legend("bottomright", legend = c("dN", "dS", "dNdS", "random"), fill = c("red", "orange", "black", "purple"))
+
+plot(as.numeric(colnames(sliceratesuce))*-1, predict(loess(log(sapply(1:length(slices), function(x) mean(sptr_unr$edge.length[slices[[x]]]))) ~ as.numeric(colnames(sliceratesuce))*-1, span = 0.05)), type = "l", xlab = "Time (My)", ylab = "Log mean chronogram branch length (My)")
+abline(v = -66, lty = 2)
+
+plot(as.numeric(colnames(sliceratesuce))*-1, predict(loess(log(sapply(slices, length)) ~ as.numeric(colnames(sliceratesuce))*-1, span = 0.05)), type = "l", xlab = "Time (My)", ylab = "Log N lineages")
+abline(v = -66, lty = 2)
+
+dev.off()
+
+
+# Plots including all lines - for exploration only.
+
+#plot(as.numeric(colnames(sliceratesuce))*-1, predict(loess(sliceratesuce[1,] ~ as.numeric(colnames(sliceratesuce)), span = 0.05)), type = "l", ylim = c(min(sliceratesuce, na.rm = T), max(sliceratesuce, na.rm = T)), col = alpha(1, 0.1))
+#for(i in 1:nrow(sliceratesuce)) try(lines(as.numeric(colnames(sliceratesuce))*-1, predict(loess(sliceratesuce[i,] ~ as.numeric(colnames(sliceratesuce)), span = 0.05)), col = alpha(1, 0.1)))
+#lines(as.numeric(colnames(sliceratesuce)), predict(loess(apply(sliceratesuce, 2, median, na.rm = T) ~ as.numeric(colnames(sliceratesuce)*-1), span = 0.05)), type = "l", col = "red")
+#abline(v = 66, lty = 2)
+
+
+# As above but in 3D - for exploration only.
+
+predslicedn <- list()
+for(i in 1:nrow(sliceratesdn)){
+	predslice <- try(predict(loess(sliceratesdn[i,] ~ as.numeric(colnames(sliceratesdn)), span = 0.05)))
+	if(class(predslice) != "try-error"){
+		predslicedn[[length(predslicedn)+1]] <- predslice
+#		names(predslicedn)[length(predslicedn)] <- rownames(sliceratesdn)[i]
+	}
+}
+predslicedn0 <- do.call("rbind", predslicedn[which(sapply(predslicedn, length) == ncol(sliceratesdn))])
+colnames(predslicedn0) <- colnames(sliceratesdn)
+meltpreddn <- melt(predslicedn0)
+colnames(meltpreddn) <- c("locus", "age", "rate")
+plot_ly(meltpreddn[which(meltpreddn$locus %in% 1:1000),], x = ~age, y = ~rate, z = ~locus, type = 'scatter3d', mode = 'lines', line = list(width = 4), split = ~locus, color = ~locus) %>% layout(showlegend = FALSE)
+
+predsliceds <- list()
+for(i in 1:nrow(sliceratesds)){
+	predslice <- try(predict(loess(sliceratesds[i,] ~ as.numeric(colnames(sliceratesds)), span = 0.05)))
+	if(class(predslice) != "try-error"){
+		predsliceds[[length(predsliceds)+1]] <- predslice
+#		names(predsliceds)[length(predsliceds)] <- rownames(sliceratesds)[i]
+	}
+}
+predsliceds0 <- do.call("rbind", predsliceds[which(sapply(predsliceds, length) == ncol(sliceratesds))])
+colnames(predsliceds0) <- colnames(sliceratesds)
+meltpredds <- melt(predsliceds0)
+colnames(meltpredds) <- c("locus", "age", "rate")
+plot_ly(meltpredds[which(meltpredds$locus %in% 1:1000),], x = ~age, y = ~rate, z = ~locus, type = 'scatter3d', mode = 'lines', line = list(width = 4), split = ~locus, color = ~locus) %>% layout(showlegend = FALSE)
+
+predndslicednds <- list()
+for(i in 1:nrow(sliceratesdnds)){
+	predndslice <- try(predict(loess(sliceratesdnds[i,] ~ as.numeric(colnames(sliceratesdnds)), span = 0.05)))
+	if(class(predndslice) != "try-error"){
+		predndslicednds[[length(predndslicednds)+1]] <- predndslice
+#		names(predndslicednds)[length(predndslicednds)] <- rownames(sliceratesdnds)[i]
+	}
+}
+predndslicednds0 <- do.call("rbind", predndslicednds[which(sapply(predndslicednds, length) == ncol(sliceratesdnds))])
+colnames(predndslicednds0) <- colnames(sliceratesdnds)
+meltpreddnds <- melt(predndslicednds0)
+colnames(meltpreddnds) <- c("locus", "age", "rate")
+plot_ly(meltpreddnds[which(meltpreddnds$locus %in% 1:1000),], x = ~age, y = ~rate, z = ~locus, type = 'scatter3d', mode = 'lines', line = list(width = 4), split = ~locus, color = ~locus) %>% layout(showlegend = FALSE)
+
+predsliceran <- list()
+for(i in 1:nrow(sliceratesran)){
+	predslice <- try(predict(loess(sliceratesran[i,] ~ as.numeric(colnames(sliceratesran)), span = 0.05)))
+	if(class(predslice) != "try-error"){
+		predsliceran[[length(predsliceran)+1]] <- predslice
+#		names(predsliceran)[length(predsliceran)] <- rownames(sliceratesran)[i]
+	}
+}
+predsliceran0 <- do.call("rbind", predsliceran[which(sapply(predsliceran, length) == ncol(sliceratesran))])
+colnames(predsliceran0) <- colnames(sliceratesran)
+meltpredran <- melt(predsliceran0)
+colnames(meltpredran) <- c("locus", "age", "rate")
+plot_ly(meltpredran[which(meltpredran$locus %in% 1:1000),], x = ~age, y = ~rate, z = ~locus, type = 'scatter3d', mode = 'lines', line = list(width = 4), split = ~locus, color = ~locus) %>% layout(showlegend = FALSE)
+
+
+# Rates versus branch ages showing raw rates without any correction for branch rates - for exploration only.
+
+edgeage <- mid.edge.ages(sptr)
+sptr2 <- sptr
+sptr2$edge.length <- edgeage
+sptr2 <- unroot(sptr2)
+edgeage <- sptr2$edge.length
+edgeage[which(edgeage == max(edgeage))] <- edgeage[which(edgeage == max(edgeage))] / 2
+
+crxdn$raw.rates.matrix[which(crxdn$raw.rates.matrix > 0.5)] <- NA
+crxds$raw.rates.matrix[which(crxds$raw.rates.matrix > 2)] <- NA
+crxdnds$raw.rates.matrix[which(crxdnds$raw.rates.matrix > 0.5)] <- NA
+crxran1$raw.rates.matrix[which(crxran1$raw.rates.matrix > 0.5)] <- NA
+
+pdf("Fig_rates_per_branch.pdf", width = 7, height = 20, useDingbats = F)
+
+par(mfrow = c(4, 1))
+
+ranmat <- log(crxran1$raw.rates.matrix)
+#for(i in 1:nrow(ranmat)) ranmat[i,] <- ranmat[i,] / mean(ranmat[i,], na.rm = T)
+plot(edgeage*-1, colMeans(ranmat, na.rm = T), pch = 20, xlab = "Mid branch age", ylab = "Log mean branch rate", col = "purple", ylim = c(-14, -1))
+segments(edgeage*-1, apply(ranmat, 2, quantile, 0.95, na.rm = T), edgeage*-1, apply(ranmat, 2, quantile, 0.05, na.rm = T), col = "purple")
+abline(v = -66, lty =2)
+abline(h = mean(colMeans(ranmat, na.rm = T), na.rm = T), lty = 2)
+
+
+dnmat <- log(crxdn$raw.rates.matrix)
+#for(i in 1:nrow(dnmat)) dnmat[i,] <- dnmat[i,] / mean(dnmat[i,], na.rm = T)
+plot(edgeage*-1, colMeans(dnmat, na.rm = T), pch = 19, xlab = "Mid branch age", ylab = "Log mean branch rate", col = "red", ylim = c(-14, -1))
+segments(edgeage*-1, apply(dnmat, 2, quantile, 0.95, na.rm = T), edgeage*-1, apply(dnmat, 2, quantile, 0.05, na.rm = T), col = "red")
+abline(v = -66, lty =2)
+abline(h = mean(colMeans(dnmat, na.rm = T), na.rm = T), lty = 2)
+
+
+dsmat <- log(crxds$raw.rates.matrix)
+#for(i in 1:nrow(dsmat)) dsmat[i,] <- dsmat[i,] / mean(dsmat[i,], na.rm = T)
+plot(edgeage*-1, colMeans(dsmat, na.rm = T), pch = 19, xlab = "Mid branch age", ylab = "Log mean branch rate", col = "orange", ylim = c(-14, -1))
+segments(edgeage*-1, apply(dsmat, 2, quantile, 0.95, na.rm = T), edgeage*-1, apply(dsmat, 2, quantile, 0.05, na.rm = T), col = "orange")
+abline(v = -66, lty =2)
+abline(h = mean(colMeans(dsmat, na.rm = T), na.rm = T), lty = 2)
+
+legend("topleft", legend = c("Random regions", "dN", "dS"), fill = c("purple", "red", "orange"))
+
+dndsmat <- log(crxdnds$raw.rates.matrix)
+#for(i in 1:nrow(dndsmat)) dndsmat[i,] <- dndsmat[i,] / mean(dndsmat[i,], na.rm = T)
+plot(edgeage*-1, colMeans(dndsmat, na.rm = T), pch = 19, xlab = "Mid branch age", ylab = "Log mean branch rate", col = "black", ylim = c(-14, -1))
+segments(edgeage*-1, apply(dndsmat, 2, quantile, 0.95, na.rm = T), edgeage*-1, apply(dndsmat, 2, quantile, 0.05, na.rm = T), col = "black")
+abline(v = -66, lty =2)
+abline(h = mean(colMeans(dndsmat, na.rm = T), na.rm = T), lty = 2)
+
+legend("topleft", legend = c("dNdS"), fill = c("black"))
+
+dev.off()
+
+
+# Rates through time for all data types excluding uncertainties - for exploration only.
+
+plot(edgeage*-1, colMeans(ranmat, na.rm = T), pch = 20, xlab = "Mid branch age", ylab = "Log mean branch rate / gene mean", col = "purple", ylim = c(0, 1.5))
+points(edgeage*-1, colMeans(dnmat, na.rm = T), pch = 20, xlab = "Mid branch age", ylab = "Log mean branch rate / gene mean", col = "red", ylim = c(0, 1.5))
+points(edgeage*-1, colMeans(dsmat, na.rm = T), pch = 20, xlab = "Mid branch age", ylab = "Log mean branch rate / gene mean", col = "orange", ylim = c(0, 1.5))
+points(edgeage*-1, colMeans(dndsmat, na.rm = T), pch = 20, xlab = "Mid branch age", ylab = "Log mean branch rate / gene mean", col = "black", ylim = c(0, 1.5))
+abline(v = -66, lty =2)
+abline(h = 1, lty = 2)
+legend("bottomleft", legend = c("ran", "dn", "ds", "dnds"), fill = c("purple", "red", "orange", "black"))
+
+
+# Verify effect of branch sampling on rates - for exploration only.
+
+tips <- which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))
+
+par(mfrow = c(2, 4))
+plot((colMeans(crxran_clocks$raw.rates.matrix, na.rm = T)), apply(crxran_clocks$raw.rates.matrix, 2, function(x) length(which(!is.na(x)))), xlab = "ran rate", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length, palette = 'viridis'))
+plot((colMeans(crxdn$raw.rates.matrix, na.rm = T)), apply(crxdn$raw.rates.matrix, 2, function(x) length(which(!is.na(x)))), xlab = "dn rate", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length, palette = 'viridis'))
+plot((colMeans(crxds$raw.rates.matrix, na.rm = T)), apply(crxds$raw.rates.matrix, 2, function(x) length(which(!is.na(x)))), xlab = "ds rate", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length, palette = 'viridis'))
+plot((colMeans(crxdnds$raw.rates.matrix, na.rm = T)), apply(crxdnds$raw.rates.matrix, 2, function(x) length(which(!is.na(x)))), xlab = "dnds rate", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length, palette = 'viridis'))
+plot(log(colMeans(crxran_clocks$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length), apply(crxran_clocks$raw.rates.matrix, 2, function(x) length(which(!is.na(x)))), xlab = "ran branch length", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length, palette = 'viridis'))
+plot(log(colMeans(crxdn$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length), apply(crxdn$raw.rates.matrix, 2, function(x) length(which(!is.na(x)))), xlab = "dn branch length", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length, palette = 'viridis'))
+plot(log(colMeans(crxds$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length), apply(crxds$raw.rates.matrix, 2, function(x) length(which(!is.na(x)))), xlab = "ds branch length", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length, palette = 'viridis'))
+plot(log(colMeans(crxdnds$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length), apply(crxdnds$raw.rates.matrix, 2, function(x) length(which(!is.na(x)))), xlab = "dnds branch length", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length, palette = 'viridis'))
+
+
+# Same but with a focus on tips  - for exploration only.
+
+par(mfrow = c(2, 4))
+plot(log(colMeans(crxran_clocks$raw.rates.matrix, na.rm = T))[tips], apply(crxran_clocks$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "ran rate", ylab = "N", pch = 20, col = colour_values(edgeage[tips]*-1, palette = 'viridis'))
+plot(log(colMeans(crxdn$raw.rates.matrix, na.rm = T))[tips], apply(crxdn$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "dn rate", ylab = "N", pch = 20, col = colour_values(edgeage[tips]*-1, palette = 'viridis'))
+plot(log(colMeans(crxds$raw.rates.matrix, na.rm = T))[tips], apply(crxds$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "ds rate", ylab = "N", pch = 20, col = colour_values(edgeage[tips]*-1, palette = 'viridis'))
+plot(log(colMeans(crxdnds$raw.rates.matrix, na.rm = T))[tips], apply(crxdnds$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "dnds rate", ylab = "N", pch = 20, col = colour_values(edgeage[tips]*-1, palette = 'viridis'))
+plot(log(colMeans(crxran_clocks$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length)[tips], apply(crxran_clocks$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "ran branch length", ylab = "N", pch = 20, col = colour_values(edgeage[tips]*-1, palette = 'viridis'))
+plot(log(colMeans(crxdn$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length)[tips], apply(crxdn$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "dn branch length", ylab = "N", pch = 20, col = colour_values(edgeage[tips]*-1, palette = 'viridis'))
+plot(log(colMeans(crxds$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length)[tips], apply(crxds$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "ds branch length", ylab = "N", pch = 20, col = colour_values(edgeage[tips]*-1, palette = 'viridis'))
+plot(log(colMeans(crxdnds$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length)[tips], apply(crxdnds$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "dnds branch length", ylab = "N", pch = 20, col = colour_values(edgeage[tips]*-1, palette = 'viridis'))
+
+
+# The following separates raw rates (non-log-transformed) for tips versus internal branches - for exploration only.
+
+par(mfrow = c(2, 3))
+plot(colMeans(crxdn$raw.rates.matrix, na.rm = T)[tips], apply(crxdn$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "dn tip branch length", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length[tips], palette = 'viridis'))
+plot(colMeans(crxds$raw.rates.matrix, na.rm = T)[tips], apply(crxds$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "ds tip branch length", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length[tips], palette = 'viridis'))
+plot(colMeans(crxdnds$raw.rates.matrix, na.rm = T)[tips], apply(crxdnds$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[tips], xlab = "dnds tip branch length", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length[tips], palette = 'viridis'))
+
+plot(colMeans(crxdn$raw.rates.matrix, na.rm = T)[-tips], apply(crxdn$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[-tips], xlab = "dn internal branch length", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length[-tips], palette = 'viridis'))
+plot(colMeans(crxds$raw.rates.matrix, na.rm = T)[-tips], apply(crxds$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[-tips], xlab = "ds internal branch length", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length[-tips], palette = 'viridis'))
+plot(colMeans(crxdnds$raw.rates.matrix, na.rm = T)[-tips], apply(crxdnds$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))[-tips], xlab = "dnds internal branch length", ylab = "N", pch = 20, col = colour_values(sptr_unr$edge.length[-tips], palette = 'viridis'))
+
+# The next shows non-logged dnds rates versus the branch length in time - for exploration only.
+
+par(mfrow = c(3,5))
+# As expected, rates are related to the time-duration of the branch (the are calculated with this!)
+#plot(colMeans(crxdnds$raw.rates.matrix, na.rm = T), (sptr_unr$edge.length), pch = 20, ylab = "Branch length in time", xlab = "dnds rate", col = as.numeric(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))+1)
+# As above, but particularly noticable when logging the rate
+plot(log(colMeans(crxdnds$raw.rates.matrix, na.rm = T)), log(sptr_unr$edge.length), pch = 20, ylab = "Log branch length in time", xlab = "Log dnds rate", col = as.numeric(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))+1)
+# Raw dnds branch lengths (not rates) are far less related to edge duration in time.
+plot(log(colMeans(crxdnds$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length), log(sptr_unr$edge.length), pch = 20, ylab = "Log branch length in time", xlab = "Log dnds  branch length", col = as.numeric(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))+1)
+# Raw dnds tips alone actually have no relationship with edge length in time:
+plot(log(colMeans(crxdnds$raw.rates.matrix, na.rm = T)[tips]*sptr_unr$edge.length[tips]), log(sptr_unr$edge.length[tips]), pch = 20, ylab = "Log branch length in time", xlab = "Log tips dnds branch length")
+# While internal branch lengths far more so:
+plot(log(colMeans(crxdnds$raw.rates.matrix, na.rm = T)[-tips]*sptr_unr$edge.length[-tips]), log(sptr_unr$edge.length[-tips]), pch = 20, ylab = "Log branch length in time", xlab = "Log internal dnds branch length")
+
+
+# Check the same but for dn and ds
+
+# As expected, rates are related to the time-duration of the branch (the are calculated with this!)
+#plot(colMeans(crxdn$raw.rates.matrix, na.rm = T), (sptr_unr$edge.length), pch = 20, ylab = "Branch length in time", xlab = "dn rate", col = as.numeric(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))+1)
+# As above, but particularly noticable when logging the rate
+plot(log(colMeans(crxdn$raw.rates.matrix, na.rm = T)), log(sptr_unr$edge.length), pch = 20, ylab = "Log branch length in time", xlab = "Log dn rate", col = as.numeric(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))+1)
+# Raw dn branch lengths (not rates) are far less related to edge duration in time.
+plot(log(colMeans(crxdn$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length), log(sptr_unr$edge.length), pch = 20, ylab = "Log branch length in time", xlab = "Log dn branch length", col = as.numeric(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))+1)
+# Raw dn tips alone actually have no relationship with edge length in time:
+plot(log(colMeans(crxdn$raw.rates.matrix, na.rm = T)[tips]*sptr_unr$edge.length[tips]), log(sptr_unr$edge.length[tips]), pch = 20, ylab = "Log branch length in time", xlab = "Log tips dn branch length")
+# While internal branch lengths far more so:
+plot(log(colMeans(crxdn$raw.rates.matrix, na.rm = T)[-tips]*sptr_unr$edge.length[-tips]), log(sptr_unr$edge.length[-tips]), pch = 20, ylab = "Log branch length in time", xlab = "Log internal dn branch length")
+
+# As expected, rates are related to the time-duration of the branch - for exploration only.
+
+#plot(colMeans(crxds$raw.rates.matrix, na.rm = T), (sptr_unr$edge.length), pch = 20, ylab = "Branch length in time", xlab = "ds rate", col = as.numeric(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))+1)
+# As above, but particularly noticable when logging the rate
+plot(log(colMeans(crxds$raw.rates.matrix, na.rm = T)), log(sptr_unr$edge.length), pch = 20, ylab = "Log branch length in time", xlab = "Log ds rate", col = as.numeric(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))+1)
+# Raw ds branch lengths (not rates) are far less related to edge duration in time.
+plot(log(colMeans(crxds$raw.rates.matrix, na.rm = T)*sptr_unr$edge.length), log(sptr_unr$edge.length), pch = 20, ylab = "Log branch length in time", xlab = "Log ds branch length", col = as.numeric(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))+1)
+# Raw ds tips alone actually have no relationship with edge length in time:
+plot(log(colMeans(crxds$raw.rates.matrix, na.rm = T)[tips]*sptr_unr$edge.length[tips]), log(sptr_unr$edge.length[tips]), pch = 20, ylab = "Log branch length in time", xlab = "Log tips ds branch length")
+# While internal branch lengths far more so:
+plot(log(colMeans(crxds$raw.rates.matrix, na.rm = T)[-tips]*sptr_unr$edge.length[-tips]), log(sptr_unr$edge.length[-tips]), pch = 20, ylab = "Log branch length in time", xlab = "Log internal ds branch length")
+
