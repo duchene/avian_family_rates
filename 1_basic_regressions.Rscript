@@ -3,6 +3,7 @@ library(ClockstaRX)
 library(ggplot2)
 library(reshape2)
 library(viridis)
+library(RColorBrewer)
 library(tidyverse)
 library(phylolm)
 library(ggridges)
@@ -201,15 +202,17 @@ colnames(datbeakd) <- c("datatype", "rate", "logbeakdepth")
 datgenlen <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.GenLength))
 colnames(datgenlen) <- c("datatype", "rate", "loggenlength")
 
+cbp1 <- c("#D55E00", "#E69F00", "#009E73", "#0072B2")
+
 pdf("Fig_clutch_tars_brain_regression.pdf", height = 6, width = 7, useDingbats = F)
-ggplot(datclutch, aes(x = logclutchsize, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_viridis_d(option = "cividis")
+ggplot(datclutch, aes(x = logclutchsize, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
 
-ggplot(dattars, aes(x = logtarslength, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_viridis_d(option = "cividis")
+ggplot(dattars, aes(x = logtarslength, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
 
-ggplot(datbrain, aes(x = logbrainmass, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_viridis_d(option = "cividis")
+ggplot(datbrain, aes(x = logbrainmass, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
 
-ggplot(datbeakd, aes(x = logbeakdepth, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_viridis_d(option = "cividis")
+ggplot(datbeakd, aes(x = logbeakdepth, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
 
-ggplot(datgenlen, aes(x = loggenlength, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_viridis_d(option = "cividis")
+ggplot(datgenlen, aes(x = loggenlength, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
 dev.off()
 

@@ -72,7 +72,7 @@ rownames(pctaxds)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$ti
 colsmat <- crxds$weighted.pca.clock.space$pIL
 colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
 colsmat[which(colsmat != "#D3D3D3")] <- "#36454F"
-for(i in 1:20) if(crxds$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(pctaxds[order(pctaxds[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("dS PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdn[,i], decreasing=T),i], ylim = c(0, max(pctaxds[order(pctaxds[,i], decreasing=T)[1:10],1:10])), border = NA)
+for(i in 1:20) if(crxds$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(pctaxds[order(pctaxds[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("dS PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdn[,i], decreasing=T),i], ylim = c(0, max(pctaxds[order(pctaxds[,i], decreasing=T),1:3])), border = NA)
 
 pctaxdnds <- (crxdnds$weighted.pca.clock.space$empPCA$rotation^2)*100
 pcperc <- round((crxdnds$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxdnds$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
@@ -80,7 +80,7 @@ rownames(pctaxdnds)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$
 colsmat <- crxdnds$weighted.pca.clock.space$pIL
 colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
 colsmat[which(colsmat != "#D3D3D3")] <- "#36454F"
-for(i in 1:20) if(crxdnds$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(pctaxdnds[order(pctaxdnds[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("dNdS PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdnds[,i], decreasing=T),i], ylim = c(0, max(pctaxdnds[order(pctaxdnds[,i], decreasing=T)[1:10],1:10])), border = NA)
+for(i in 1:20) if(crxdnds$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(pctaxdnds[order(pctaxdnds[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("dNdS PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdnds[,i], decreasing=T),i], ylim = c(0, max(pctaxdnds[order(pctaxdnds[,i], decreasing=T),1:3])), border = NA)
 
 pctaxran <- (crxran1$weighted.pca.clock.space$empPCA$rotation^2)*100
 pcperc <- round((crxran1$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxran1$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
@@ -88,7 +88,7 @@ rownames(pctaxran)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$t
 colsmat <- crxran1$weighted.pca.clock.space$pIL
 colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
 colsmat[which(colsmat != "#D3D3D3")] <- "#36454F"
-for(i in 1:20) if(crxran1$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(pctaxran[order(pctaxran[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("Random PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdn[,i], decreasing=T),i], ylim = c(0, max(pctaxran[order(pctaxran[,i], decreasing=T)[1:10],1:10])), border = NA)
+for(i in 1:20) if(crxran1$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(pctaxran[order(pctaxran[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("Random PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdn[,i], decreasing=T),i], ylim = c(0, max(pctaxran[order(pctaxran[,i], decreasing=T),1:3])), border = NA)
 dev.off()
 
 
