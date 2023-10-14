@@ -66,3 +66,5 @@ crxdnds$weighted.pca.clock.space$pIL
 plot(sptr_unr)
 edgelabels(bg = 'white')
 ```
+
+The code in this repository is usable under the GNU General Public Licence version 3.
