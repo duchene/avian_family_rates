@@ -99,26 +99,48 @@ rownames(ranpcs) <- sptr_unr$tip.label
 
 medianrates <- cbind(medianrates, dnpcs, dspcs, dndspcs, ranpcs)
 
+# Load taxonomy data
+
+taxcode <- read.csv("~/Desktop/B10K_phase2/taxonomy_codes.csv", header = T, row.names = 1)[sptr_unr$tip.label,]
 
 # Load and incorporate trait data.
 
-taxcode <- read.csv("~/Desktop/B10K_phase2/taxonomy_codes.csv", header = T, row.names = 1)[sptr_unr$tip.label,]
 rownames(medianrates) <- taxcode$family
 dat <- as.data.frame(cbind(medianrates, read.csv("~/Desktop/Research/b10k_rates/trait_data_Aug_22/218family_means_vars.csv", header = T, row.names = 1)[taxcode$family,]))
 
-### Alternative analysis removing extreme points (mostly palaeognaths)
+### Alternative analysis 1 - using tip traits instead of family averages
+
+rownames(medianrates) <- taxcode$taxa
+traits <- read.csv("~/Desktop/Research/b10k_rates/trait_data_Aug_22/raw_data_all_9949_species.csv", header = T, row.names = 1)
+rownames(traits) <- gsub(" ", "_", rownames(traits))
+traitnames <- c('Beak.Length_Culmen' ,'Beak.Length_Nares' ,'Beak.Width' ,'Beak.Depth' ,'Tarsus.Length' ,'Wing.Length' ,'Kipps.Distance' ,'Secondary1' ,'Hand.Wing.Index' ,'Tail.Length' ,'Mass' ,'Habitat.Density' ,'Migration' ,'Habitat' ,'Trophic.Level' ,'Trophic.Niche' ,'Primary.Lifestyle' ,'Brain.Mass..g.' ,'Mean.clutch.size' ,'Maximum.longevity' ,'GenLength' ,'Min.Latitude' ,'Max.Latitude' ,'Centroid.Latitude' ,'Centroid.Longitude' ,'Range.Size' ,'meanAnnualtemp' ,'meanAnnualPrecipitation' ,'Population.size.1.1.matches.only')
+traits <- traits[,traitnames]
+colnames(traits)[c(1:13, 18:29)] <- paste0("mean.", colnames(traits)[c(1:13, 18:29)])
+colnames(traits)[14:17] <- paste0("mode.", colnames(traits)[14:17])
+colnames(traits)[c(19, 27, 28, 29)] <- c("mean.clutch.size", "mean.Annualtemp", "mean.AnnualPrecipitation", "mean.Abundance.estimate.1.1.matched")
+traits[,29] <- as.numeric(traits[,29])
+dat <- as.data.frame(cbind(medianrates, traits[taxcode$taxa,]))
+rownames(dat) <- taxcode$family
+
+# Fill in missing data with family averages where available
+
+traitsfam <- read.csv("~/Desktop/Research/b10k_rates/trait_data_Aug_22/218family_means_vars.csv", header = T, row.names = 1)[taxcode$family,]
+for(i in 1:ncol(dat)) dat[which(is.na(dat[,i])),i] <- traitsfam[which(is.na(dat[,i])),colnames(dat)[i]]
+
+
+### Alternative analysis 2 - removing extreme points (a few palaeognaths)
 dat$mean.Wing.Length[which(dat$mean.Wing.Length < 1)] <- NA
 dat$mean.Secondary1[which(dat$mean.Secondary1 < 1)] <- NA
 dat$mean.Kipps.Distance[which(dat$mean.Kipps.Distance < 1)] <- NA
 
-
-# Make and fill table of single regression p-values.
+# Prepare data for regression
 
 sptr$tip.label <- taxcode[sptr$tip.label,]$family
+dat[,1:4] <- log(dat[,1:4])
+
+# Make and fill table of single regression p-values - bottom-up regression
 
 singregpvals <- matrix(NA, nrow = ncol(dat) - ncol(medianrates), ncol = ncol(medianrates))
-
-dat[,1:4] <- log(dat[,1:4])
 
 for(i in 1:ncol(medianrates)){
 	for(j in 1:(ncol(dat) - ncol(medianrates))){
@@ -155,23 +177,17 @@ sigsinglevars <- lapply(sigsinglevars, function(x) if(length(x) > 0) x[!grepl("v
 
 multregs <- list()
 for(i in 1:length(sigsinglevars)){
-if(length(sigsinglevars[[i]]) > 0) if(all(grepl("mean", names(sigsinglevars[[i]])))){ 
-		multregs[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]]), ")", collapse = "+"))), data = dat, phy = sptr) 
-	} else if(all(!grepl("mean", names(sigsinglevars[[i]])))){
-		multregs[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0(names(sigsinglevars[[i]]), collapse = "+"))), data = dat, phy = sptr) 
+if(length(sigsinglevars[[i]]) > 0) if(all(!grepl("mean", names(sigsinglevars[[i]]))) | all(grepl("Longitude", names(sigsinglevars[[i]])))){
+		multregs[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0(names(sigsinglevars[[i]]), collapse = "+"))), data = dat, phy = sptr)  
+	} else if(all(grepl("mean", names(sigsinglevars[[i]])))){ 
+		multregs[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]]), ")", collapse = "+"))), data = dat, phy = sptr)
 	} else {
 		numvars <- grepl("mean", names(sigsinglevars[[i]]))
 		multregs[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]])[numvars], ")", collapse = "+"), "+", paste0(names(sigsinglevars[[i]])[!numvars], collapse = "+"))), data = dat, phy = sptr)
 	}
 }
 
-
-# Save regression data and results.
-
-save(singregpvals, singregpvals_adj, sigsinglevars, multregs, dat, sptr, file = "regression.data.Rdata")
-
-
-# Plot significant variables in multiple regression.
+# Plot significant variables in bottom-up multiple regression.
 
 pdf("Fig_regression_multiple.pdf", height = 4, width = 4, useDingbats = F)
 for(i in 1:length(multregs)){
@@ -188,8 +204,21 @@ for(i in 1:length(multregs)){
 }
 dev.off()
 
+# Top-down regression using stepwise removal of variables (mode.Trophic.Niche needs to be removed, possibly due to the levels with 1 sample; depending on the analysis, mode.Habitat and mode.Trophic.Level also need to be removed for the same reason)
 
-# Make neater figures for key variables.
+stepvariables <- "log(mean.Beak.Length_Culmen) + log(mean.Beak.Length_Nares) + log(mean.Beak.Width) + log(mean.Beak.Depth) + log(mean.Tarsus.Length) + log(mean.Wing.Length) + log(mean.Kipps.Distance) + log(mean.Secondary1) + log(mean.Hand.Wing.Index) + log(mean.Tail.Length) + log(mean.Mass) + log(mean.Habitat.Density) + log(mean.Migration) + log(mean.Brain.Mass..g.) + log(mean.clutch.size) + log(mean.Maximum.longevity) + log(mean.GenLength) + log(mean.Range.Size) + mean.Annualtemp + log(mean.AnnualPrecipitation) + log(mean.Abundance.estimate.1.1.matched) + mode.Habitat + mode.Trophic.Level + mode.Primary.Lifestyle + mean.Min.Latitude + mean.Max.Latitude + mean.Centroid.Latitude + mean.Centroid.Longitude"
+
+stepmodels <- list()
+for(i in 1:ncol(medianrates)){
+stepmodels[[i]] <- phylostep(as.formula(paste0(colnames(dat)[i], "~", stepvariables)), data = dat, phy = sptr)
+}
+names(stepmodels) <- colnames(dat)[1:ncol(medianrates)]
+
+# Save regression data and results.
+
+save(singregpvals, singregpvals_adj, sigsinglevars, multregs, stepmodels, dat, sptr, file = "regression.data.Rdata")
+
+# Make neat figures for key variables.
 
 datclutch <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.clutch.size))
 colnames(datclutch) <- c("datatype", "rate", "logclutchsize")
