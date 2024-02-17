@@ -144,6 +144,7 @@ dat[,1:4] <- log(dat[,1:4])
 
 singregpvals <- matrix(NA, nrow = ncol(dat) - ncol(medianrates), ncol = ncol(medianrates))
 singregaic <- matrix(NA, nrow = ncol(dat) - ncol(medianrates), ncol = ncol(medianrates))
+singregr2 <- matrix(NA, nrow = ncol(dat) - ncol(medianrates), ncol = ncol(medianrates))
 
 for(i in 1:ncol(medianrates)){
 	for(j in 1:(ncol(dat) - ncol(medianrates))){
@@ -160,11 +161,12 @@ for(i in 1:ncol(medianrates)){
 			singregpvals[j, i] <- min(summary(singreg)$coef[-1,4])
 		}
 		singregaic[j, i] <- AICc(singreg)
+		singregr2[j, i] <- singreg$r.squared
 	}
 }
 
-colnames(singregpvals) <- colnames(dat)[1:ncol(medianrates)]
-rownames(singregpvals) <- colnames(dat)[(ncol(medianrates)+1):ncol(dat)]
+colnames(singregpvals) <- colnames(singregaic) <- colnames(singregr2) <- colnames(dat)[1:ncol(medianrates)]
+rownames(singregpvals) <- rownames(singregaic) <- rownames(singregr2) <- colnames(dat)[(ncol(medianrates)+1):ncol(dat)]
 
 
 # Adjust p-values using false-discovery rates.
@@ -182,6 +184,7 @@ for(i in 1:length(sigsinglevars)) sigsinglevars[[i]] <- sigsinglevars[[i]][!grep
 
 sigsinglevars <- lapply(sigsinglevars, function(x) if(length(x) > 0) x[!grepl("var[.]", names(x))])
 
+# Multiple regressions with all variables
 multregs <- list()
 for(i in 1:length(sigsinglevars)){
 if(length(sigsinglevars[[i]]) > 0) if(all(!grepl("mean", names(sigsinglevars[[i]]))) | all(grepl("Longitude", names(sigsinglevars[[i]])))){
@@ -193,6 +196,30 @@ if(length(sigsinglevars[[i]]) > 0) if(all(!grepl("mean", names(sigsinglevars[[i]
 		multregs[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]])[numvars], ")", collapse = "+"), "+", paste0(names(sigsinglevars[[i]])[!numvars], collapse = "+"))), data = dat, phy = sptr)
 	}
 }
+
+# Multiple regressions with dredge and model averaging
+multregsavg <- list()
+#r2ranges <- list()
+for(i in 1:length(sigsinglevars)){
+if(length(sigsinglevars[[i]]) > 0) if(all(!grepl("mean", names(sigsinglevars[[i]]))) | all(grepl("Longitude", names(sigsinglevars[[i]])))){
+		fullmodel <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0(names(sigsinglevars[[i]]), collapse = "+"))), data = dat, phy = sptr)
+		dredgedmodels <-  dredge(fullmodel, trace = 2)
+		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels)
+#		r2ranges[[colnames(dat[i])]] <- range(dredgedmodels$'R^2')
+	} else if(all(grepl("mean", names(sigsinglevars[[i]])))){ 
+		fullmodel <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]]), ")", collapse = "+"))), data = dat, phy = sptr)
+		dredgedmodels <-  dredge(fullmodel, trace = 2)
+		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels)
+#		r2ranges[[colnames(dat[i])]] <- range(dredgedmodels$'R^2')
+	} else {
+		numvars <- grepl("mean", names(sigsinglevars[[i]]))
+		fullmodel <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]])[numvars], ")", collapse = "+"), "+", paste0(names(sigsinglevars[[i]])[!numvars], collapse = "+"))), data = dat, phy = sptr)
+		dredgedmodels <-  dredge(fullmodel, trace = 2)
+		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels)
+#		r2ranges[[colnames(dat[i])]] <- range(dredgedmodels$'R^2')
+	}
+}
+
 
 # Plot significant variables in bottom-up multiple regression.
 
@@ -255,7 +282,7 @@ names(stepmodels) <- colnames(dat)[1:ncol(medianrates)]
 
 ###### Save regression data and results.
 
-save(singregpvals, singregpvals_adj, sigsinglevars, singregaic, aicvars, multregsaic, multregs, stepmodels, dat, sptr, file = "regression.data.Rdata")
+save(singregpvals, singregpvals_adj, sigsinglevars, singregaic, singregr2, aicvars, multregsaic, multregs, multregsavg, stepmodels, dat, sptr, file = "regression.data.Rdata")
 
 ######
 
