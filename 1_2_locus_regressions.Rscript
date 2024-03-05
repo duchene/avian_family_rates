@@ -1,0 +1,128 @@
+library(ClockstaRX)
+library(MuMIn)
+load("alltrs.Rdata")
+load("crx_dn.Rdata")
+load("crx_ds.Rdata")
+load("crx_dnds.Rdata")
+load("crx_ran.Rdata")
+load("crx_ran1.Rdata")
+load("gc_length_location.Rdata")
+
+# Prepare intergenic regions data
+
+names(gcran) <- names(gcranrange) <- gsub("[.]1k.*", "", names(gcran))
+rownames(locations) <- gsub("[.]/|_1k.*", "", rownames(locations))
+set.seed(1234)
+rownames(crxran1[[1]]) <- names(sample(rantrs, 10000))
+ranrates <- rowMeans(crxran1[[1]], na.rm = T)
+names(ranrates) <- gsub("[.]/|_1k.*", "", names(ranrates))
+locations <- locations[order(locations[,1]),]
+chrom <- locations[,1]
+loc <- locations[,2]
+names(chrom) <- names(loc) <- rownames(locations)
+proploc <- by(as.numeric(loc), chrom, function(x){
+	absloc <- abs(x - quantile(x, 0.5, na.rm = T)) 
+	proploc <- 1 - (absloc / max(absloc, na.rm = T))
+})
+proploc <- unlist(proploc)
+names(proploc) <- names(loc)
+
+randat <- as.data.frame(cbind(chrom[names(ranrates)], proploc[names(ranrates)], gcran[names(ranrates)], gcranrange[names(ranrates)], ranrates[names(ranrates)]))
+colnames(randat) <- c("chrom", "loc", "gc", "gcranrange", "rate")
+for(i in 2:4) randat[,i] <- as.numeric(randat[,i])
+randat <- randat[!is.na(randat[,1]),]
+randat <- randat[!is.na(randat[,2]),]
+
+# Add PC data
+
+pPCran <- crxran1$weighted.pca.clock.space$pPC
+pcran <- crxran1$weighted.pca.clock.space$empPCA$x[,1:min(which(pPCran > 0.01) - 1)]
+rownames(pcran) <- names(ranrates)
+randat <- as.data.frame(cbind(randat, pcran[rownames(randat),]))
+for(i in 2:ncol(randat)) randat[,i] <- as.numeric(randat[,i])
+randat[,"rate"] <- log(randat[,"rate"])
+
+# Prepare coding regions gc and length data
+
+names(genlen) <- names(gcgenes) <- names(gcrangegenes) <- gsub("[.]c123.*", "", names(genlen))
+
+ratesdn <- rowMeans(crxdn[[1]], na.rm = T)
+pPCdn <- crxdn$weighted.pca.clock.space$pPC
+pcdn <- crxdn$weighted.pca.clock.space$empPCA$x[,1:min(which(pPCdn > 0.01) - 1)]
+
+ratesds <- rowMeans(crxds[[1]], na.rm = T)
+pPCds <- crxds$weighted.pca.clock.space$pPC
+pcds <- crxds$weighted.pca.clock.space$empPCA$x[,1:min(which(pPCds > 0.01) - 1)]
+
+ratesdnds <- rowMeans(crxdnds[[1]], na.rm = T)
+pPCdnds <- crxdnds$weighted.pca.clock.space$pPC
+pcdnds <- crxdn$weighted.pca.clock.space$empPCA$x[,1:min(which(pPCdnds > 0.01) - 1)]
+
+rownames(pcdn) <- rownames(pcds) <- rownames(pcdnds) <- gsub("[.]c123.*", "", names(dntrs))
+
+rownames(geneloctab) <- gsub("[.]c123.*", "", rownames(geneloctab))
+geneloctab$chromosome <- sapply(geneloctab$chromosome, function(x) {
+	strsplit(x, split = "_")[[1]][1]
+})
+geneloctab <- geneloctab[geneloctab$chromosome != "chrUn" | is.na(geneloctab$chromosome),]
+geneloctab <- geneloctab[gsub("[.]c123.*", "", names(genlen)),]
+geneloctab <- geneloctab[order(geneloctab$chromosome),]
+genlocation <- geneloctab$location
+genechrom <- geneloctab$chromosome
+names(genlocation) <- names(genechrom) <- rownames(geneloctab)
+genchroms <- unique(sort(geneloctab$chromosome))
+genproploc <- vector()
+for(i in 1:length(genchroms)){
+	rawlocs <- as.numeric(geneloctab$location)[which(geneloctab$chromosome == genchroms[i])]
+	absloc <- abs(rawlocs - quantile(rawlocs, 0.5, na.rm = T)) 
+	proploc <- 1 - (absloc / max(absloc, na.rm = T))
+	names(proploc) <- rownames(geneloctab)[which(geneloctab$chromosome == genchroms[i])]
+	genproploc <- c(genproploc, proploc)
+}
+genproploc <- genproploc[gsub("[.]c123.*", "", names(genlen))]
+genechrom <- genechrom[gsub("[.]c123.*", "", names(genlen))]
+
+genesdat <- as.data.frame(cbind(genlen, gcgenes, gcrangegenes, genproploc, genechrom, ratesdn, pcdn, ratesds, pcds, ratesdnds, pcdnds))
+for(i in c(1:4, 6:ncol(genesdat))) genesdat[,i] <- as.numeric(genesdat[,i])
+rownames(genesdat) <- names(genlen)
+genesdat <- genesdat[!is.na(genesdat$ratesdn),]
+genesdat <- genesdat[!is.na(genesdat$ratesds),]
+genesdat <- genesdat[!is.na(genesdat$ratesdnds),]
+genesdat <- genesdat[!is.na(genesdat$genproploc),]
+genesdat[,c("ratesdn", "ratesds", "ratesdnds")] <- log(genesdat[,c("ratesdn", "ratesds", "ratesdnds")])
+
+
+# Run multiple regressions (mean rates and values at PCs) and model averaging
+
+ranmod <- list()
+ranmodavg <- list()
+for(i in 1:17){
+#	ranmod[[i]] <- glm(as.formula(paste0(colnames(randat)[i+4], " ~ loc + gc + sqrt(gcranrange) + gc:loc + loc:sqrt(gcranrange) + gc:sqrt(gcranrange)")), data = randat, na.action = 'na.fail')
+	ranmod[[i]] <- glm(as.formula(paste0(colnames(randat)[i+4], " ~ loc + gc + gc:loc")), data = randat, na.action = 'na.fail')
+	ranmodavg[[i]] <- model.avg(dredge(ranmod[[i]]))
+}
+
+ranmodgc <- lapply(1:17, function(x) glm(as.formula(paste0(colnames(randat)[x+4], " ~ gc")), data = randat, na.action = 'na.fail'))
+ranmodloc <- lapply(1:17, function(x) glm(as.formula(paste0(colnames(randat)[x+4], " ~ loc")), data = randat, na.action = 'na.fail'))
+ranmodgcrange <- lapply(1:17, function(x) glm(as.formula(paste0(colnames(randat)[x+4], " ~ sqrt(gcranrange)")), data = randat, na.action = 'na.fail'))
+
+names(ranmod) <- names(ranmodavg) <- names(ranmodgc) <- names(ranmodloc) <- names(ranmodgcrange) <- colnames(randat)[5:21]
+
+genemod <- list()
+genemodavg <- list()
+for(i in 1:28){
+#	genemod[[i]] <- glm(as.formula(paste0(colnames(genesdat)[i+5], " ~ log(genlen) + gcgenes + sqrt(gcrangegenes) + log(genlen):gcgenes + log(genlen):sqrt(gcrangegenes) + gcgenes:sqrt(gcrangegenes)")), data = genesdat, na.action = 'na.fail')
+	genemod[[i]] <- glm(as.formula(paste0(colnames(genesdat)[i+5], " ~ (log(genlen) + gcgenes + genproploc)^2")), data = genesdat, na.action = 'na.fail')
+        genemodavg[[i]] <- model.avg(dredge(genemod[[i]]))
+}
+
+genemodgc <- lapply(1:28, function(x) glm(as.formula(paste0(colnames(genesdat)[x+5], " ~ gcgenes")), data = genesdat, na.action = 'na.fail') )
+genemodlen <- lapply(1:28, function(x) glm(as.formula(paste0(colnames(genesdat)[x+5], " ~ log(genlen)")), data = genesdat, na.action = 'na.fail') )
+genemodgcrange <- lapply(1:28, function(x) glm(as.formula(paste0(colnames(genesdat)[x+5], " ~ sqrt(gcrangegenes)")), data = genesdat, na.action = 'na.fail') )
+genemodloc <- lapply(1:28, function(x) glm(as.formula(paste0(colnames(genesdat)[x+5], " ~ genproploc")), data = genesdat, na.action = 'na.fail') )
+
+names(genemod) <- names(genemodavg) <- names(genemodgc) <- names(genemodlen) <- names(genemodgcrange) <- names(genemodloc) <- colnames(genesdat)[6:33]
+
+# Save data - only raw data since full regression data is too large
+
+save(randat, genesdat, file = "locus_regressions.Rdata")

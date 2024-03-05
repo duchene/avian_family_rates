@@ -1,0 +1,316 @@
+library(phangorn)
+library(ClockstaRX)
+library(ggplot2)
+library(reshape2)
+library(viridis)
+library(RColorBrewer)
+library(tidyverse)
+library(phylolm)
+library(ggridges)
+library(gridExtra)
+library(plotly)
+library(crosstalk)
+library(MuMIn)
+source("~/Dropbox/Research/code/brsPerTslice.R")
+load("alltrs.Rdata")
+load("crx_dn.Rdata")
+load("crx_ds.Rdata")
+load("crx_dnds.Rdata")
+load("crx_ran1.Rdata")
+
+
+# Prepare data, including adding locus names to ClockstaRX outputs.
+
+sptr_unr <- unroot(sptr)
+rownames(crxdn[[1]]) <- names(dntrs)
+rownames(crxds[[1]]) <- names(dstrs)
+rownames(crxdnds[[1]]) <- names(dntrs)
+set.seed(1234)
+rownames(crxran1[[1]]) <- names(sample(rantrs, 10000))
+colnames(crxdn[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxds[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxdnds[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxran1[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+
+
+# Extract raw rates for tips.
+
+taxdn <- crxdn[[1]][,which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))]
+taxds <- crxds[[1]][,which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))]
+taxdnds <- crxdnds[[1]][,which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))]
+taxran <- crxran1[[1]][,which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))]
+
+
+# Melt data into single table with all rates data.
+
+alltaxrates <- cbind(rbind(melt(taxdn), melt(taxds), melt(taxdnds), melt(taxran)), c(rep("dn", nrow(taxdn)*ncol(taxdn)), rep("ds", nrow(taxds)*ncol(taxds)), rep("dnds", nrow(taxdnds)*ncol(taxdnds)), rep("ran", nrow(taxran)*ncol(taxran))))
+colnames(alltaxrates) <- c("locus", "species", "rate", "regiontype")
+
+
+# Make plots of rates per species per data set - for exploration only.
+
+alltaxrates$species <- factor(alltaxrates$species, levels = colnames(taxran)[order(apply(taxran, 2, median, na.rm = T))])
+pdf("rates_per_species_ran.pdf", width = 30, height = 7, useDingbats = F)
+ggplot(alltaxrates, aes(x = species, y = log(rate), fill = regiontype)) + geom_boxplot(coef = 100) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust=0)) + scale_fill_viridis_d()
+dev.off()
+
+alltaxrates$species <- factor(alltaxrates$species, levels = colnames(taxdn)[order(apply(taxdn, 2, median, na.rm = T))])
+pdf("rates_per_species_dn.pdf", width = 30, height = 7, useDingbats = F)
+ggplot(alltaxrates, aes(x = species, y = log(rate), fill = regiontype)) + geom_boxplot(coef = 100) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust=0)) + scale_fill_viridis_d()
+dev.off()
+
+alltaxrates$species <- factor(alltaxrates$species, levels = colnames(taxds)[order(apply(taxds, 2, median, na.rm = T))])
+pdf("rates_per_species_ds.pdf", width = 30, height = 7, useDingbats = F)
+ggplot(alltaxrates, aes(x = species, y = log(rate), fill = regiontype)) + geom_boxplot(coef = 100) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust=0)) + scale_fill_viridis_d()
+dev.off()
+
+alltaxrates$species <- factor(alltaxrates$species, levels = colnames(taxdnds)[order(apply(taxdnds, 2, median, na.rm = T))])
+pdf("rates_per_species_dnds.pdf", width = 30, height = 7, useDingbats = F)
+ggplot(alltaxrates, aes(x = species, y = log(rate), fill = regiontype)) + geom_boxplot(coef = 100) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust=0)) + scale_fill_viridis_d()
+dev.off()
+
+
+# Make data set of median rates per tip.
+
+medianrates <- as.data.frame(cbind(apply(taxdn, 2, median, na.rm = T), apply(taxds, 2, median, na.rm = T), apply(taxdnds, 2, median, na.rm = T), apply(taxran, 2, median, na.rm = T)))
+colnames(medianrates) <- c("dn", "ds", "dnds", "ran")
+
+
+# Incorporate data on loadings (rotation) of tips across significant PCs.
+
+Npcsdn <- which(crxdn$weighted.pca.clock.space$pPCs > 0.01)[1] - 1
+dnpcs <- crxdn$weighted.pca.clock.space$empPCA$rotation[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr)) ,1:Npcsdn]
+colnames(dnpcs) <- paste0(colnames(dnpcs), ".dn")
+rownames(dnpcs) <- sptr_unr$tip.label
+
+Npcsds <- which(crxds$weighted.pca.clock.space$pPCs > 0.01)[1] - 1
+dspcs <- crxds$weighted.pca.clock.space$empPCA$rotation[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr)) ,1:Npcsds]
+colnames(dspcs) <- paste0(colnames(dspcs), ".ds")
+rownames(dspcs) <- sptr_unr$tip.label
+
+Npcsdnds <- which(crxdnds$weighted.pca.clock.space$pPCs > 0.01)[1] - 1
+dndspcs <- crxdnds$weighted.pca.clock.space$empPCA$rotation[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr)) ,1:Npcsdnds]
+colnames(dndspcs) <- paste0(colnames(dndspcs), ".dnds")
+rownames(dndspcs) <- sptr_unr$tip.label
+
+Npcsran <- which(crxran1$weighted.pca.clock.space$pPCs > 0.01)[1] - 1
+ranpcs <- crxran1$weighted.pca.clock.space$empPCA$rotation[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr)) ,1:Npcsran]
+colnames(ranpcs) <- paste0(colnames(ranpcs), ".ran")
+rownames(ranpcs) <- sptr_unr$tip.label
+
+medianrates <- cbind(medianrates, dnpcs, dspcs, dndspcs, ranpcs)
+
+# Load taxonomy data
+
+taxcode <- read.csv("~/Desktop/B10K_phase2/taxonomy_codes.csv", header = T, row.names = 1)[sptr_unr$tip.label,]
+
+# Load and incorporate trait data.
+
+rownames(medianrates) <- taxcode$family
+dat <- as.data.frame(cbind(medianrates, read.csv("~/Desktop/Research/b10k_rates/trait_data_Aug_22/218family_means_vars.csv", header = T, row.names = 1)[taxcode$family,]))
+
+### Alternative analysis 1 - using tip traits instead of family averages
+
+rownames(medianrates) <- taxcode$taxa
+traits <- read.csv("~/Desktop/Research/b10k_rates/trait_data_Aug_22/raw_data_all_9949_species.csv", header = T, row.names = 1)
+rownames(traits) <- gsub(" ", "_", rownames(traits))
+traitnames <- c('Beak.Length_Culmen' ,'Beak.Length_Nares' ,'Beak.Width' ,'Beak.Depth' ,'Tarsus.Length' ,'Wing.Length' ,'Kipps.Distance' ,'Secondary1' ,'Hand.Wing.Index' ,'Tail.Length' ,'Mass' ,'Habitat.Density' ,'Migration' ,'Habitat' ,'Trophic.Level' ,'Trophic.Niche' ,'Primary.Lifestyle' ,'Brain.Mass..g.' ,'Mean.clutch.size' ,'Maximum.longevity' ,'GenLength' ,'Min.Latitude' ,'Max.Latitude' ,'Centroid.Latitude' ,'Centroid.Longitude' ,'Range.Size' ,'meanAnnualtemp' ,'meanAnnualPrecipitation' ,'Population.size.1.1.matches.only')
+traits <- traits[,traitnames]
+colnames(traits)[c(1:13, 18:29)] <- paste0("mean.", colnames(traits)[c(1:13, 18:29)])
+colnames(traits)[14:17] <- paste0("mode.", colnames(traits)[14:17])
+colnames(traits)[c(19, 27, 28, 29)] <- c("mean.clutch.size", "mean.Annualtemp", "mean.AnnualPrecipitation", "mean.Abundance.estimate.1.1.matched")
+traits[,29] <- as.numeric(traits[,29])
+dat <- as.data.frame(cbind(medianrates, traits[taxcode$taxa,]))
+rownames(dat) <- taxcode$family
+
+# Fill in missing data with family averages where available
+
+traitsfam <- read.csv("~/Desktop/Research/b10k_rates/trait_data_Aug_22/218family_means_vars.csv", header = T, row.names = 1)[taxcode$family,]
+for(i in 1:ncol(dat)) dat[which(is.na(dat[,i])),i] <- traitsfam[which(is.na(dat[,i])),colnames(dat)[i]]
+
+
+### Alternative analysis 2 - removing extreme points (a few palaeognaths)
+dat$mean.Wing.Length[which(dat$mean.Wing.Length < 1)] <- NA
+dat$mean.Secondary1[which(dat$mean.Secondary1 < 1)] <- NA
+dat$mean.Kipps.Distance[which(dat$mean.Kipps.Distance < 1)] <- NA
+
+# Prepare data for regression
+
+sptr$tip.label <- taxcode[sptr$tip.label,]$family
+dat[,1:4] <- log(dat[,1:4])
+
+# Make and fill table of single regression AICc and p-values - bottom-up regression
+
+
+singregpvals <- matrix(NA, nrow = ncol(dat) - ncol(medianrates), ncol = ncol(medianrates))
+singregaic <- matrix(NA, nrow = ncol(dat) - ncol(medianrates), ncol = ncol(medianrates))
+singregr2 <- matrix(NA, nrow = ncol(dat) - ncol(medianrates), ncol = ncol(medianrates))
+
+for(i in 1:ncol(medianrates)){
+	for(j in 1:(ncol(dat) - ncol(medianrates))){
+		if(class(dat[,j+ncol(medianrates)]) == "numeric"){
+			if(any(dat[,j+ncol(medianrates)] <= 0, na.rm = T)){
+				singreg <- phylolm(get(colnames(dat)[i]) ~ get(colnames(dat)[j+ncol(medianrates)]), data = dat, phy = sptr)
+				singregpvals[j, i] <- min(summary(singreg)$coef[-1,4])
+			} else {
+				singreg <- phylolm(get(colnames(dat)[i]) ~ log(get(colnames(dat)[j+ncol(medianrates)])), data = dat, phy = sptr)
+				singregpvals[j, i] <- min(summary(singreg)$coef[-1,4])
+			}
+		} else {
+			singreg <- phylolm(get(colnames(dat)[i]) ~ get(colnames(dat)[j+ncol(medianrates)]), data = dat, phy = sptr)
+			singregpvals[j, i] <- min(summary(singreg)$coef[-1,4])
+		}
+		singregaic[j, i] <- AICc(singreg)
+		singregr2[j, i] <- singreg$r.squared
+	}
+}
+
+colnames(singregpvals) <- colnames(singregaic) <- colnames(singregr2) <- colnames(dat)[1:ncol(medianrates)]
+rownames(singregpvals) <- rownames(singregaic) <- rownames(singregr2) <- colnames(dat)[(ncol(medianrates)+1):ncol(dat)]
+
+
+# Adjust p-values using false-discovery rates.
+
+singregpvals_adj <- matrix(p.adjust(singregpvals, method = 'fdr'), nrow = ncol(dat) - ncol(medianrates), ncol = ncol(medianrates))
+colnames(singregpvals_adj) <- colnames(singregpvals)
+rownames(singregpvals_adj) <- rownames(singregpvals)
+
+
+# Identify significant variables and run multiple regression.
+
+sigsinglevars <- lapply(1:ncol(singregpvals_adj), function(x) which(singregpvals_adj[,x] < 0.01))
+names(sigsinglevars) <- colnames(dat)[1:ncol(medianrates)]
+for(i in 1:length(sigsinglevars)) sigsinglevars[[i]] <- sigsinglevars[[i]][!grepl("mode.Trophic.Niche", names(sigsinglevars[[i]]))]
+
+sigsinglevars <- lapply(sigsinglevars, function(x) if(length(x) > 0) x[!grepl("var[.]", names(x))])
+
+# Multiple regressions with all variables
+multregs <- list()
+for(i in 1:length(sigsinglevars)){
+if(length(sigsinglevars[[i]]) > 0) if(all(!grepl("mean", names(sigsinglevars[[i]]))) | all(grepl("Longitude", names(sigsinglevars[[i]])))){
+		multregs[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0(names(sigsinglevars[[i]]), collapse = "+"))), data = dat, phy = sptr)  
+	} else if(all(grepl("mean", names(sigsinglevars[[i]])))){ 
+		multregs[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]]), ")", collapse = "+"))), data = dat, phy = sptr)
+	} else {
+		numvars <- grepl("mean", names(sigsinglevars[[i]]))
+		multregs[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]])[numvars], ")", collapse = "+"), "+", paste0(names(sigsinglevars[[i]])[!numvars], collapse = "+"))), data = dat, phy = sptr)
+	}
+}
+
+# Multiple regressions with dredge and model averaging
+multregsavg <- list()
+#r2ranges <- list()
+for(i in 1:length(sigsinglevars)){
+if(length(sigsinglevars[[i]]) > 0) if(all(!grepl("mean", names(sigsinglevars[[i]]))) | all(grepl("Longitude", names(sigsinglevars[[i]])))){
+		fullmodel <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0(names(sigsinglevars[[i]]), collapse = "+"))), data = dat, phy = sptr)
+		dredgedmodels <-  dredge(fullmodel, trace = 2)
+		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels)
+#		r2ranges[[colnames(dat[i])]] <- range(dredgedmodels$'R^2')
+	} else if(all(grepl("mean", names(sigsinglevars[[i]])))){ 
+		fullmodel <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]]), ")", collapse = "+"))), data = dat, phy = sptr)
+		dredgedmodels <-  dredge(fullmodel, trace = 2)
+		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels)
+#		r2ranges[[colnames(dat[i])]] <- range(dredgedmodels$'R^2')
+	} else {
+		numvars <- grepl("mean", names(sigsinglevars[[i]]))
+		fullmodel <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]])[numvars], ")", collapse = "+"), "+", paste0(names(sigsinglevars[[i]])[!numvars], collapse = "+"))), data = dat, phy = sptr)
+		dredgedmodels <-  dredge(fullmodel, trace = 2)
+		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels)
+#		r2ranges[[colnames(dat[i])]] <- range(dredgedmodels$'R^2')
+	}
+}
+
+
+# Plot significant variables in bottom-up multiple regression.
+
+pdf("Fig_regression_multiple.pdf", height = 4, width = 4, useDingbats = F)
+for(i in 1:length(multregs)){
+	multregsum <- summary(multregs[[i]])$coef[,4]
+	names(multregsum) <- gsub("log[(]|[)]", "", names(multregsum))
+	if(any(multregsum[-1] < 0.05)){
+		sigv <- which(multregsum[-1] < 0.05) + 1
+		for(j in 1:length(sigv)) if(grepl("mean", names(multregsum)[sigv[j]])){
+			try(print(ggplot(dat, aes(x = log(.data[[names(multregsum)[sigv[j]]]]), y = .data[[names(multregs)[i]]])) + geom_point() + theme_bw()))
+		} else {
+			try(print(ggplot(dat, aes(x = .data[[names(multregsum)[sigv[j]]]], y = .data[[names(multregs)[i]]])) + geom_boxplot() + theme_bw()))
+		}
+	}
+}
+dev.off()
+
+# Bottom-up regression using AICc variable selection
+
+colnames(singregaic) <- colnames(dat)[1:ncol(medianrates)]
+rownames(singregaic) <- colnames(dat)[(ncol(medianrates)+1):ncol(dat)]
+
+aicvars <- lapply(1:ncol(singregaic), function(x) rownames(singregaic)[which(singregaic[,x] <= (min(singregaic[,x]) + 2))])
+names(aicvars) <- colnames(singregaic)
+
+multregsaic <- list()
+for(i in 1:length(aicvars)){
+if(all(grepl('mode[.]', aicvars[[i]]))){ multregsaic[[colnames(dat[i])]] <- NULL; next }
+if(length(aicvars[[i]]) > 0) if(all(!grepl("mean", names(aicvars[[i]]))) | all(grepl("Longitude", aicvars[[i]]))){
+		multregsaic[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0(aicvars[[i]], collapse = "+"))), data = dat, phy = sptr)  
+	} else if(all(grepl("mean", aicvars[[i]]))){ 
+		multregsaic[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", aicvars[[i]], ")", collapse = "+"))), data = dat, phy = sptr)
+	} else {
+		numvars <- grepl("mean", aicvars[[i]])
+		multregsaic[[colnames(dat[i])]] <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", aicvars[[i]][numvars], ")", collapse = "+"), "+", paste0(aicvars[[i]][!numvars], collapse = "+"))), data = dat, phy = sptr)
+	}
+}
+
+
+
+# Top-down regression using stepwise removal of variables (mode.Trophic.Niche needs to be removed, possibly due to the levels with 1 sample; depending on the analysis, mode.Habitat and mode.Trophic.Level also need to be removed for the same reason)
+
+stepvariables <- "log(mean.Beak.Length_Culmen) + log(mean.Beak.Length_Nares) + log(mean.Beak.Width) + log(mean.Beak.Depth) + log(mean.Tarsus.Length) + log(mean.Wing.Length) + log(mean.Kipps.Distance) + log(mean.Secondary1) + log(mean.Hand.Wing.Index) + log(mean.Tail.Length) + log(mean.Mass) + log(mean.Habitat.Density) + log(mean.Migration) + log(mean.Brain.Mass..g.) + log(mean.clutch.size) + log(mean.Maximum.longevity) + log(mean.GenLength) + log(mean.Range.Size) + mean.Annualtemp + log(mean.AnnualPrecipitation) + log(mean.Abundance.estimate.1.1.matched) + mode.Habitat + mode.Trophic.Level + mode.Primary.Lifestyle + mean.Min.Latitude + mean.Max.Latitude + mean.Centroid.Latitude + mean.Centroid.Longitude"
+
+stepmodels <- list()
+for(i in 1:ncol(medianrates)){
+stepmodels[[i]] <- phylostep(as.formula(paste0(colnames(dat)[i], "~", stepvariables)), data = dat, phy = sptr)
+}
+names(stepmodels) <- colnames(dat)[1:ncol(medianrates)]
+
+# Dredge regressions and model averaging - aborted due to computational demand
+
+#vars <- strsplit(stepvariables, split = " [+] ")[[1]]
+#constrainmat <- matrix(T, ncol = length(vars), nrow = length(vars), dimnames = list(vars, vars))
+
+#rankedregs <- dredge(phylolm(as.formula(paste0(colnames(dat)[i], "~", stepvariables)), data = dat, phy = sptr), trace = 2, subset = constrainmat)
+
+#averagedreg <- model.avg(rankedregs)
+
+###### Save regression data and results.
+
+save(singregpvals, singregpvals_adj, sigsinglevars, singregaic, singregr2, aicvars, multregsaic, multregs, multregsavg, stepmodels, dat, sptr, file = "regression.data.Rdata")
+
+######
+
+
+# Make neat figures for key variables.
+
+datclutch <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.clutch.size))
+colnames(datclutch) <- c("datatype", "rate", "logclutchsize")
+dattars <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.Tarsus.Length))
+colnames(dattars) <- c("datatype", "rate", "logtarslength")
+datbrain <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.Brain.Mass..g.))
+colnames(datbrain) <- c("datatype", "rate", "logbrainmass")
+datbeakd <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.Beak.Depth))
+colnames(datbeakd) <- c("datatype", "rate", "logbeakdepth")
+datgenlen <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.GenLength))
+colnames(datgenlen) <- c("datatype", "rate", "loggenlength")
+
+cbp1 <- c("#D55E00", "#E69F00", "#009E73", "#0072B2")
+
+pdf("Fig_clutch_tars_brain_regression.pdf", height = 6, width = 7, useDingbats = F)
+ggplot(datclutch, aes(x = logclutchsize, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
+
+ggplot(dattars, aes(x = logtarslength, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
+
+ggplot(datbrain, aes(x = logbrainmass, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
+
+ggplot(datbeakd, aes(x = logbeakdepth, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
+
+ggplot(datgenlen, aes(x = loggenlength, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
+dev.off()
+
