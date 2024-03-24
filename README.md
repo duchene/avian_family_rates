@@ -30,16 +30,31 @@ https://sid.erda.dk/cgi-sid/ls.py?share_id=hVS3naBtJ6
 To open and visualize the reported lineage regression results, in R install the *MuMIn* and *phylolm* packages and type as follows:
 
 ```coffee
+# Load required packages
 library(phylolm)
 library(MuMIn)
+
+# Load data and analyses with family means of traits 
 load('Supp_File_3a_regression_data_family_traits.Rdata')
 
-# Regressions are found in the multregs list, with one element for each regression.
+# Regressions are found in the lists 'multregs' (for multiple regression) and 'multregsavg' (for model-average multiple regressions), with one list element for each regression
+
 # See list of dependent variables
 names(multregsavg)
 
-# See full results for each analysis
-lapply(multregsavg, summary)
+# See full results for all analyses
+model_summaries <- lapply(multregsavg, summary)
+
+# E.g., explore model-averaged results for ds rates
+model_summaries[['ds']]
+
+# See the r-squared for the full model explaining ds rates (variables selected from simple regression)
+multregs[['ds']]$adj.r.squared
+
+# And sigma squared - indicator of phylogenetic signal in model residuals
+multregs[['ds']]$sigma2
+
+# Repeat for other data sets - e.g., excluding outlier palaeognaths (''Supp_File_3b_regression_data_neoaves_family_traits.Rdata')
 ```
 
 To see results for rate decomposition (PCA) analyses:
