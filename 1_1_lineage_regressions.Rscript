@@ -203,19 +203,19 @@ multregsavg <- list()
 for(i in 1:length(sigsinglevars)){
 if(length(sigsinglevars[[i]]) > 0) if(all(!grepl("mean", names(sigsinglevars[[i]]))) | all(grepl("Longitude", names(sigsinglevars[[i]])))){
 		fullmodel <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0(names(sigsinglevars[[i]]), collapse = "+"))), data = dat, phy = sptr)
-		dredgedmodels <-  dredge(fullmodel, trace = 2)
-		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels)
+		dredgedmodels <-  dredge(fullmodel, trace = 2, fixed = 'log(mean.Mass)')
+		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels, subset = delta <= 2)
 #		r2ranges[[colnames(dat[i])]] <- range(dredgedmodels$'R^2')
 	} else if(all(grepl("mean", names(sigsinglevars[[i]])))){ 
 		fullmodel <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]]), ")", collapse = "+"))), data = dat, phy = sptr)
-		dredgedmodels <-  dredge(fullmodel, trace = 2)
-		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels)
+		dredgedmodels <-  dredge(fullmodel, trace = 2, fixed = 'log(mean.Mass)')
+		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels, subset = delta <= 2)
 #		r2ranges[[colnames(dat[i])]] <- range(dredgedmodels$'R^2')
 	} else {
 		numvars <- grepl("mean", names(sigsinglevars[[i]]))
 		fullmodel <- phylolm(as.formula(paste0(colnames(dat)[i], "~", paste0("log(", names(sigsinglevars[[i]])[numvars], ")", collapse = "+"), "+", paste0(names(sigsinglevars[[i]])[!numvars], collapse = "+"))), data = dat, phy = sptr)
-		dredgedmodels <-  dredge(fullmodel, trace = 2)
-		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels)
+		dredgedmodels <-  dredge(fullmodel, trace = 2, fixed = 'log(mean.Mass)')
+		multregsavg[[colnames(dat[i])]] <- model.avg(dredgedmodels, subset = delta <= 2)
 #		r2ranges[[colnames(dat[i])]] <- range(dredgedmodels$'R^2')
 	}
 }
