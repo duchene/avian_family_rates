@@ -6,13 +6,13 @@ sptr <- read.tree("family_level_avian_tree.tre")
 
 ### Load data sets for all regression analyses
 
-moldat <- read.csv("regressions_data_Bayes_lineage_rates_y.csv", header = T, row.names = 1)
-pcdat <- read.csv("regressions_data_Bayes_PCs_y.csv", header = T, row.names = 1)
+moldat <- read.csv("Supp_File_3_data_sets_for_regression/regressions_data_Bayes_lineage_rates_y.csv", header = T, row.names = 1)
+pcdat <- read.csv("Supp_File_3_data_sets_for_regression/regressions_data_Bayes_PCs_y.csv", header = T, row.names = 1)
 
 # Family averages
-familytraits <- read.csv("regressions_data_Bayes_family_x.csv", header = T, row.names = 1)
+familytraits <- read.csv("Supp_File_3_data_sets_for_regression/regressions_data_Bayes_family_x.csv", header = T, row.names = 1)
 # Single species trait data (corresponding to sequenced species)
-speciestraits <- read.csv("regressions_data_Bayes_species_x.csv", header = T, row.names = 1)
+speciestraits <- read.csv("Supp_File_3_data_sets_for_regression/regressions_data_Bayes_species_x.csv", header = T, row.names = 1)
 
 # Regressions for each molecular variable and PC at the level of family
 
@@ -22,7 +22,7 @@ dat <- cbind(moldat, pcdat, familytraits)
 
 regres <- lapply(1:45, function(x)
 	phylolm(formula(paste0(colnames(dat)[x], "~", 
-	paste0(colnames(dat)[c(46:62,64:67)], collapse = "+"))), 
+	paste0(colnames(dat)[c(46:62,64:68)], collapse = "+"))), 
 	data = dat, 
 	phy = sptr, 
 	model = "lambda"))
@@ -49,7 +49,7 @@ dat_sp <- cbind(moldat, pcdat, speciestraits)
 
 regres_sp <- lapply(1:45, function(x)
 	phylolm(formula(paste0(colnames(dat_sp)[x], "~", 
-	paste0(colnames(dat_sp)[c(46:62,64:67)], collapse = "+"))), 
+	paste0(colnames(dat_sp)[c(46:62,64:68)], collapse = "+"))), 
 	data = dat_sp, 
 	phy = sptr, 
 	model = "lambda"))
