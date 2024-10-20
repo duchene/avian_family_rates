@@ -36,7 +36,7 @@ for(i in 1:length(regres_sum)){
 	coefs$Q2.5 <- coefs$Estimate - (1.96 * coefs$StdErr)
 	coefs$Q97.5 <- coefs$Estimate + (1.96 * coefs$StdErr)
 	regcoefs[[i]] <- coefs
-	write.csv(coefs, file = paste0(names(regres_sum)[i], ".csv"))
+	write.csv(coefs, file = paste0("Supp_File_4_regression_results/", names(regres_sum)[i], ".csv"))
 }
 names(regcoefs) <- names(regres_sum)
 
@@ -64,7 +64,7 @@ for(i in 1:length(regres_sum_sp)){
 	coefs$Q2.5 <- coefs$Estimate - (1.96 * coefs$StdErr)
 	coefs$Q97.5 <- coefs$Estimate + (1.96 * coefs$StdErr)
 	regcoefs_sp[[i]] <- coefs
-	write.csv(coefs, file = paste0(names(regres_sum_sp)[i], ".csv"))
+	write.csv(coefs, file = paste0("Supp_File_4_regression_results/", names(regres_sum_sp)[i], ".csv"))
 }
 names(regcoefs_sp) <- names(regres_sum_sp)
 
