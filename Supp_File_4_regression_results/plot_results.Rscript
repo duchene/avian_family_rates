@@ -449,7 +449,7 @@ for(i in 1:7){
 
 
 pcregres <- do.call("rbind", pcreslist)
-pcregres$run <- rep(paste0("pc", 1:7), each = 19)
+pcregres$run <- rep(paste0("pc", 1:7), each = 20)
 
 pcregres$run <- factor(pcregres$run, levels = rev(paste0("pc", 1:7)))
 
