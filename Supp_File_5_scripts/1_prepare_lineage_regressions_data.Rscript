@@ -11,7 +11,7 @@ library(gridExtra)
 library(plotly)
 library(crosstalk)
 library(MuMIn)
-source("~/Dropbox/Research/code/brsPerTslice.R")
+source("brsPerTslice.R")
 load("alltrs.Rdata")
 load("crx_dn.Rdata")
 load("crx_ds.Rdata")
@@ -99,15 +99,4 @@ colnames(ranpcs) <- paste0(colnames(ranpcs), ".ran")
 rownames(ranpcs) <- sptr_unr$tip.label
 
 medianrates <- cbind(medianrates, dnpcs, dspcs, dndspcs, ranpcs)
-
-# Load taxonomy data
-
-taxcode <- read.csv("~/Desktop/B10K_phase2/taxonomy_codes.csv", header = T, row.names = 1)[sptr_unr$tip.label,]
-
-# Load and incorporate trait data.
-
-rownames(medianrates) <- taxcode$family
-dat <- as.data.frame(cbind(medianrates, read.csv("~/Desktop/Research/b10k_rates/trait_data_Aug_22/218family_means_vars.csv", header = T, row.names = 1)[taxcode$family,]))
-
-
 

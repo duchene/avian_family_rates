@@ -1,7 +1,7 @@
 library(brms)
 library(arm)
-xpath = '/home/sjbhatt/x_data_genes.csv'
-ypath = '/home/sjbhatt/y_data_genes.csv'
+xpath = 'x_data_genes.csv'
+ypath = 'y_data_genes.csv'
 X=read.csv(xpath)
 X = X[,2:ncol(X)]
 X$genlen = log(X$genlen)

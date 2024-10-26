@@ -1,6 +1,6 @@
 library(brms)
 library(arm)
-xpath = '/home/sjbhatt/y_x_data_ranregions.csv'
+xpath = 'y_x_data_ranregions.csv'
 X=read.csv(xpath)
 X = X[complete.cases(X),]
 X = X[,2:ncol(X)]

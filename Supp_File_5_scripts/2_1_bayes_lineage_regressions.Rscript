@@ -1,7 +1,7 @@
 library(brms)
 library(arm)
-xpath = '/home/sjbhatt/regressions_data_Bayes_family_x.csv'
-ypath = '/home/sjbhatt/y_data-raw.csv'
+xpath = 'regressions_data_Bayes_family_x.csv'
+ypath = 'y_data-raw.csv'
 X=read.csv(xpath)
 X = X[,2:ncol(X)]
 

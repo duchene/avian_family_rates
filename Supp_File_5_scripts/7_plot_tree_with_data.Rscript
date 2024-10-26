@@ -9,8 +9,8 @@ load("crx_dnds.Rdata")
 load("crx_ran.Rdata")
 
 sptr_unr <- unroot(sptr)
-taxcode <- read.csv("~/Desktop/B10K_phase2/taxonomy_codes.csv", header = T, row.names = 1)[sptr$tip.label,]
-dat <- read.csv("~/Desktop/Research/b10k_rates/trait_data_Aug_22/218family_means_vars.csv", header = T, row.names = 1)[taxcode$family,]
+taxcode <- read.csv("taxonomy_codes.csv", header = T, row.names = 1)[sptr$tip.label,]
+dat <- read.csv("218family_means_vars.csv", header = T, row.names = 1)[taxcode$family,]
 tars <- log(dat$mean.Tarsus.Length)
 names(tars) <- rownames(dat)
 sptr$tip.label <- taxcode[sptr$tip.label,"family"]
