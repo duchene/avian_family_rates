@@ -1,0 +1,64 @@
+library(brms)
+library(arm)
+
+
+# Load data sets
+
+xpath = 'y_x_data_ranregions.csv'
+X=read.csv(xpath)
+X = X[complete.cases(X),]
+X = X[,2:ncol(X)]
+choices = names(X)[1]
+
+y = X[,1]
+X = X[,2:ncol(X)]
+
+
+# Prepare data formatting
+
+X <- X[, !apply(X, 2, anyNA)]
+nms = colnames(X)
+nms = gsub("\\.\\.", ".", nms)
+nms = gsub('\\.','_',nms)
+nms = gsub('_$','',nms)
+
+colnames(X) = nms
+
+X = arm::rescale(as.matrix(X))
+
+
+data = as.data.frame(X)
+data$y = y
+
+
+# Run regression analyses
+
+full_formula <- as.formula(paste0('y ~ loc + gc + symmetry_pval + gc:loc'))
+
+options(mc.cores = parallel::detectCores())
+m <- brm(
+  formula = full_formula,
+  data = data,
+  family = gaussian(),
+  chains = 4,
+  cores = 1,
+  iter = 10000,
+  thin = 1,
+  control = list(adapt_delta = 0.99, max_treedepth = 15),
+  prior = c(
+	prior(normal(0, 5), "b"),
+	prior(normal(0, 5), "Intercept"),
+	prior(student_t(3, 0, 5), "sigma")
+  )
+)
+
+
+# Save results
+
+coef_data <- fixef(m)
+coef_df <- as.data.frame(coef_data)
+response_name = choices
+response_name = gsub("\\.","_",response_name)
+csv_name = paste0("/home/sjbhatt/ranregions.csv")
+write.csv(coef_df, csv_name, row.names = TRUE)
+

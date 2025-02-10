@@ -1,0 +1,565 @@
+dirs <- list.dirs()[-1]
+
+# Load necessary packages
+library(ggplot2)
+library(viridis)
+
+# Bayesian coefficient estimates for the raw lineage rates - family traits
+
+orderedvars <- c(11, 12, 13, 17, 21, 2, 3, 4, 5, 6, 7, 10, 8, 9, 18, 19, 20, 14, 15, 16)
+
+dnres <- read.csv("lineages_Bayes/dn.csv", header = T)[orderedvars,]
+dsres <- read.csv("lineages_Bayes/ds.csv", header = T)[orderedvars,]
+dndsres <- read.csv("lineages_Bayes/dnds.csv", header = T)[orderedvars,]
+ranres <- read.csv("lineages_Bayes/ran.csv", header = T)[orderedvars,]
+colnames(dnres)[1] <- colnames(dsres)[1] <- colnames(dndsres)[1] <- colnames(ranres)[1] <- "variable"
+
+rawregres <- rbind(dnres, dsres, dndsres, ranres)
+rawregres$run <- c(rep("dn", 20), rep("ds", 20), rep("dnds", 20), rep("ran", 20))
+
+rawregres$run <- factor(rawregres$run, levels = rev(c("dn", "ds", "dnds", "ran")))
+
+rawregres$variable <- factor(rawregres$variable, levels = rev(unique(rawregres$variable))) 
+
+color_palette <- c("dn" = "#d55e00ff", "ds" = "#e69f00ff", "dnds" = "#009e73ff", "ran" = "#0072b2ff")
+
+pdf("Fig_1_family_bayes.pdf", height = 12, width = 5, useDingbats = F)
+
+ggplot(rawregres, aes(y = variable, color = run)) +
+  geom_point(aes(x = Estimate, group = run), size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5, y = variable, group = run), 
+                 height = 0.2, size = 1.2, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black", size = 1) +
+  scale_color_manual(values = color_palette, name = "Run") + 
+  labs(y = "Variable", x = "Estimate with Credible Intervals", color = "Run") +  
+  theme_bw() +  
+  theme(
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 10),
+    legend.position = "top"  
+  )
+  
+dev.off()
+
+
+# Bayesian coefficient estimates for the raw lineage rates - species traits
+
+orderedvars <- c(11, 12, 13, 17, 21, 2, 3, 4, 5, 6, 7, 10, 8, 9, 18, 19, 20, 14, 15, 16)
+
+dnres <- read.csv("lineages_species_Bayes/dn_species.csv", header = T)[orderedvars,]
+dsres <- read.csv("lineages_species_Bayes/ds_species.csv", header = T)[orderedvars,]
+dndsres <- read.csv("lineages_species_Bayes/dnds_species.csv", header = T)[orderedvars,]
+ranres <- read.csv("lineages_species_Bayes/ran_species.csv", header = T)[orderedvars,]
+colnames(dnres)[1] <- colnames(dsres)[1] <- colnames(dndsres)[1] <- colnames(ranres)[1] <- "variable"
+
+rawregres <- rbind(dnres, dsres, dndsres, ranres)
+rawregres$run <- c(rep("dn", 20), rep("ds", 20), rep("dnds", 20), rep("ran", 20))
+
+rawregres$run <- factor(rawregres$run, levels = rev(c("dn", "ds", "dnds", "ran")))
+
+rawregres$variable <- factor(rawregres$variable, levels = rev(unique(rawregres$variable))) 
+
+color_palette <- c("dn" = "#d55e00ff", "ds" = "#e69f00ff", "dnds" = "#009e73ff", "ran" = "#0072b2ff")
+
+pdf("Fig_1_species_bayes.pdf", height = 12, width = 5, useDingbats = F)
+
+ggplot(rawregres, aes(y = variable, color = run)) +
+  geom_point(aes(x = Estimate, group = run), size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5, y = variable, group = run), 
+                 height = 0.2, size = 1.2, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black", size = 1) +
+  scale_color_manual(values = color_palette, name = "Run") + 
+  labs(y = "Variable", x = "Estimate with Credible Intervals", color = "Run") +  
+  theme_bw() +  
+  theme(
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 10),
+    legend.position = "top"  
+  )
+  
+dev.off()
+
+
+# Frequentist coefficient estimate for the raw lineage rates - family traits
+
+vars <- gsub('_', '.', dnres[,1])
+vars[c(5, 12)] <- c("mean.devmode", "mean.Brain.Mass..g.")
+
+dnres <- read.csv("lineages_freq/dn.csv", header = T)
+dsres <- read.csv("lineages_freq/ds.csv", header = T)
+dndsres <- read.csv("lineages_freq/dnds.csv", header = T)
+ranres <- read.csv("lineages_freq/ran.csv", header = T)
+rownames(dnres) <- rownames(dsres) <- rownames(dndsres) <- rownames(ranres) <- dnres[,1]
+dnres <- dnres[vars,]
+dsres <- dsres[vars,]
+dndsres <- dndsres[vars,]
+ranres <- ranres[vars,]
+colnames(dnres)[1] <- colnames(dsres)[1] <- colnames(dndsres)[1] <- colnames(ranres)[1] <- "variable"
+
+rawregres <- rbind(dnres, dsres, dndsres, ranres)
+rawregres$run <- c(rep("dn", 20), rep("ds", 20), rep("dnds", 20), rep("ran", 20))
+
+rawregres$run <- factor(rawregres$run, levels = rev(c("dn", "ds", "dnds", "ran")))
+
+rawregres$variable <- factor(rawregres$variable, levels = rev(unique(rawregres$variable))) 
+
+color_palette <- c("dn" = "#d55e00ff", "ds" = "#e69f00ff", "dnds" = "#009e73ff", "ran" = "#0072b2ff")
+
+pdf("Fig_1_freq.pdf", height = 12, width = 5, useDingbats = F)
+
+ggplot(rawregres, aes(y = variable, color = run)) +
+  geom_point(aes(x = Estimate, group = run), size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5, y = variable, group = run), 
+                 height = 0.2, size = 1.2, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black", size = 1) +
+  scale_color_manual(values = color_palette, name = "Run") + 
+  labs(y = "Variable", x = "Estimate with Credible Intervals", color = "Run") +  
+  theme_bw() +  
+  theme(
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 10),
+    legend.position = "top"  
+  )
+  
+dev.off()
+
+# Frequentist coefficient estimate for the raw lineage rates - species traits
+
+vars <- gsub('_', '.', dnres[,1])
+vars[c(5, 12)] <- c("mean.devmode", "mean.Brain.Mass..g.")
+
+dnres <- read.csv("lineages_species_freq/dn.csv", header = T)
+dsres <- read.csv("lineages_species_freq/ds.csv", header = T)
+dndsres <- read.csv("lineages_species_freq/dnds.csv", header = T)
+ranres <- read.csv("lineages_species_freq/ran.csv", header = T)
+rownames(dnres) <- rownames(dsres) <- rownames(dndsres) <- rownames(ranres) <- dnres[,1]
+dnres <- dnres[vars,]
+dsres <- dsres[vars,]
+dndsres <- dndsres[vars,]
+ranres <- ranres[vars,]
+colnames(dnres)[1] <- colnames(dsres)[1] <- colnames(dndsres)[1] <- colnames(ranres)[1] <- "variable"
+
+rawregres <- rbind(dnres, dsres, dndsres, ranres)
+rawregres$run <- c(rep("dn", 20), rep("ds", 20), rep("dnds", 20), rep("ran", 20))
+
+rawregres$run <- factor(rawregres$run, levels = rev(c("dn", "ds", "dnds", "ran")))
+
+rawregres$variable <- factor(rawregres$variable, levels = rev(unique(rawregres$variable))) 
+
+color_palette <- c("dn" = "#d55e00ff", "ds" = "#e69f00ff", "dnds" = "#009e73ff", "ran" = "#0072b2ff")
+
+pdf("Fig_1_species_freq.pdf", height = 12, width = 5, useDingbats = F)
+
+ggplot(rawregres, aes(y = variable, color = run)) +
+  geom_point(aes(x = Estimate, group = run), size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5, y = variable, group = run), 
+                 height = 0.2, size = 1.2, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black", size = 1) +
+  scale_color_manual(values = color_palette, name = "Run") + 
+  labs(y = "Variable", x = "Estimate with Credible Intervals", color = "Run") +  
+  theme_bw() +  
+  theme(
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 10),
+    legend.position = "top"  
+  )
+  
+dev.off()
+
+
+# Random forest importance scores for the raw lineage rates - family traits
+
+#vars <- gsub('_', '.', dnres[,1])
+#vars[c(6, 12, 15)] <- c("mean.Beak.Length_Culmen", "mean.Brain.Mass..g.", "mean.Max.Latitude")
+
+dnrf <- read.csv("lineages_random_forest/dn_RF.csv", header = T, row.names = 1)[vars,]
+dsrf <- read.csv("lineages_random_forest/ds_RF.csv", header = T, row.names = 1)[vars,]
+dndsrf <- read.csv("lineages_random_forest/dnds_RF.csv", header = T, row.names = 1)[vars,]
+ranrf <- read.csv("lineages_random_forest/ran_RF.csv", header = T, row.names = 1)[vars,]
+
+rawrf <- data.frame(variable = rep(vars, 4), importance = c(dnrf, dsrf, dndsrf, ranrf))
+rawrf$run <- rawregres$run
+
+rawrf$variable <- factor(rawrf$variable, levels = unique(rawrf$variable))
+rawrf$variable <- factor(rawrf$variable, levels = rev(levels(rawrf$variable)))
+rawrf$run <- factor(rawrf$run, levels = rev(c("dn", "ds", "dnds", "ran")))
+
+pdf("Fig_1_family_rf.pdf", height = 12, width = 5, useDingbats = F)
+
+ggplot(rawrf, aes(y = variable, x = importance, fill = run)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+  scale_fill_manual(values = color_palette) +  
+  labs(y = "Variable", x = "Importance", fill = "Run") +  
+  theme_bw() + 
+  theme(
+    axis.text.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 14), 
+    legend.position = "top" 
+  )
+
+dev.off()
+
+# Random forest importance scores for the raw lineage rates - species traits
+
+vars <- gsub('_', '.', dnres[,1])
+vars[12] <- "mean.Brain.Mass..g."
+
+dnrf <- read.csv("lineages_species_random_forest/dn_species_RF.csv", header = T, row.names = 1)[vars,]
+dsrf <- read.csv("lineages_species_random_forest/ds_species_RF.csv", header = T, row.names = 1)[vars,]
+dndsrf <- read.csv("lineages_species_random_forest/dnds_species_RF.csv", header = T, row.names = 1)[vars,]
+ranrf <- read.csv("lineages_species_random_forest/ran_species_RF.csv", header = T, row.names = 1)[vars,]
+
+rawrf <- data.frame(variable = rep(vars, 4), importance = c(dnrf, dsrf, dndsrf, ranrf))
+rawrf$run <- rawregres$run
+
+rawrf$variable <- factor(rawrf$variable, levels = unique(rawrf$variable))
+rawrf$variable <- factor(rawrf$variable, levels = rev(levels(rawrf$variable)))
+rawrf$run <- factor(rawrf$run, levels = rev(c("dn", "ds", "dnds", "ran")))
+
+pdf("Fig_1_species_rf.pdf", height = 12, width = 5, useDingbats = F)
+
+ggplot(rawrf, aes(y = variable, x = importance, fill = run)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+  scale_fill_manual(values = color_palette) +  
+  labs(y = "Variable", x = "Importance", fill = "Run") +  
+  theme_bw() + 
+  theme(
+    axis.text.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 14), 
+    legend.position = "top" 
+  )
+
+dev.off()
+
+
+# Bayesian coefficient plots for gene-wise rates 
+
+dngen <- read.csv("genes_Bayes/ratesdn.csv", header = T)[-c(1:2),]
+dsgen <- read.csv("genes_Bayes/ratesds.csv", header = T)[-c(1:2),]
+dndsgen <- read.csv("genes_Bayes/ratesdnds.csv", header = T)[-c(1:2),]
+rangen <- read.csv("ranregions_Bayes/ranregions.csv", header = T)[-c(1,4),]
+
+rangen[,1] <- c("genproploc", "gcgenes", "gcgenes:genproploc")
+rangen <- rbind(rangen, data.frame(X = c("genlen", "genlen:gcgenes", "genlen:genproploc"), Estimate = rep(0, 3), Est.Error = rep(0, 3), Q2.5 = rep(0, 3), Q97.5 = rep(0, 3)))
+
+genres <- rbind(dngen, dsgen, dndsgen, rangen)
+genres$run <- c(rep("dn", 6), rep("ds", 6), rep("dnds", 6), rep("ran", 6))
+colnames(genres)[1] <- "variable"
+genres[,1] <- gsub("log", "", genres[,1])
+
+genres$run <- factor(genres$run, levels = rev(c("dn", "ds", "dnds", "ran")))
+genres$variable <- factor(genres$variable, levels = rev(unique(genres$variable))) 
+
+color_palette <- c("dn" = "#d55e00ff", "ds" = "#e69f00ff", "dnds" = "#009e73ff", "ran" = "#0072b2ff")
+
+pdf("Fig_1_genes_bayes.pdf", height = 7, width = 5, useDingbats = F)
+
+ggplot(genres, aes(y = variable, color = run)) +
+  geom_point(aes(x = Estimate, group = run), size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5, y = variable, group = run), 
+                 height = 0.2, size = 1.2, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black", size = 1) +
+  scale_color_manual(values = color_palette, name = "Run") + 
+  labs(y = "Variable", x = "Estimate with Credible Intervals", color = "Run") +  
+  theme_bw() +  
+  theme(
+    axis.text.y = element_text(size = 10),  
+    axis.title.x = element_text(size = 10),
+    legend.position = "top" 
+  )
+    
+dev.off()
+
+# Frequentist coefficient plots for gene-wise rates
+
+dngen <- read.csv("genes_freq/ratesdn.csv", header = T)[-c(1:2),]
+dsgen <- read.csv("genes_freq/ratesds.csv", header = T)[-c(1:2),]
+dndsgen <- read.csv("genes_freq/ratesdnds.csv", header = T)[-c(1:2),]
+rangen <- read.csv("ranregions_freq/ranregions.csv", header = T)[-c(1,4),]
+dngen[,1] <- dsgen[,1] <- dndsgen[,1] <- gsub("log[(]|[)]", "", dngen[,1])
+
+rangen[,1] <- c("genproploc", "gcgenes", "gcgenes:genproploc")
+rangen <- rbind(rangen, data.frame(X = c("genlen", "genlen:gcgenes", "genlen:genproploc"), Estimate = rep(0, 3), Std..Error = rep(0, 3), t.value = rep(0, 3), Pr...t.. = rep(1, 3), Q2.5 = rep(0, 3), Q97.5 = rep(0, 3)))
+rangen <- rangen[c(4, 2, 1, 5, 3, 6),]
+
+genres <- rbind(dngen, dsgen, dndsgen, rangen)
+genres$run <- c(rep("dn", 6), rep("ds", 6), rep("dnds", 6), rep("ran", 6))
+colnames(genres)[1] <- "variable"
+
+genres$run <- factor(genres$run, levels = rev(c("dn", "ds", "dnds", "ran")))
+genres$variable <- factor(genres$variable, levels = rev(unique(genres$variable)))
+
+color_palette <- c("dn" = "#d55e00ff", "ds" = "#e69f00ff", "dnds" = "#009e73ff", "ran" = "#0072b2ff")
+
+pdf("Fig_1_genes_freq.pdf", height = 7, width = 5, useDingbats = F)
+
+ggplot(genres, aes(y = variable, color = run)) +
+  geom_point(aes(x = Estimate, group = run), size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5, y = variable, group = run),
+                 height = 0.2, size = 1.2, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black", size = 1) +
+  scale_color_manual(values = color_palette, name = "Run") +
+  labs(y = "Variable", x = "Estimate with Credible Intervals", color = "Run") +
+  theme_bw() +
+  theme(
+    axis.text.y = element_text(size = 10),
+    axis.title.x = element_text(size = 10),
+    legend.position = "top"
+  )
+
+
+dev.off()
+
+
+# Bayesian coefficient estimate and random forest importance plots for PCs - family traits
+
+orderedvars <- c(11, 12, 13, 17, 21, 2, 3, 4, 5, 6, 7, 10, 8, 9, 18, 19, 20, 14, 15, 16)
+
+pcreslist <- list()
+for(i in 1:7){
+	pcreslist[[i]] <- read.csv(paste0("PCs_Bayes/PC", i, "_dnds.csv"), header = T)[orderedvars,]
+	colnames(pcreslist[[i]])[1] <- "variable"
+}
+
+
+pcregres <- do.call("rbind", pcreslist)
+pcregres$run <- rep(paste0("pc", 1:7), each = 20)
+
+pcregres$run <- factor(pcregres$run, levels = rev(paste0("pc", 1:7)))
+
+pcregres$variable <- factor(pcregres$variable, levels = rev(unique(pcregres$variable))) 
+
+color_palette <- c(
+  "pc1" = "#440154",  # dark purple-blue
+  "pc2" = "#3B528B",  # deep blue
+  "pc3" = "#2C728E",  # bluish teal
+  "pc4" = "#21908C",  # blue-green
+  "pc5" = "#28A6A8",  # aqua blue
+  "pc6" = "#43BF9E",  # soft blue-green
+  "pc7" = "#5DC863"   # light teal
+)
+
+pdf("Fig_PC_bayes.pdf", height = 20, width = 7, useDingbats = F)
+
+ggplot(pcregres, aes(y = variable, color = run)) +
+  geom_point(aes(x = Estimate, group = run), size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5, y = variable, group = run), 
+                 height = 0.2, size = 1.2, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black", size = 1) +
+  scale_color_manual(values = color_palette, name = "Run") + 
+  labs(y = "Variable", x = "Estimate with Credible Intervals", color = "Run") +  
+  theme_bw() +  
+  theme(
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 10),
+    legend.position = "top"  
+  )
+  
+dev.off()
+
+
+vars <- gsub('_', '.', dnres[,1])
+vars[c(12)] <- c("mean.Brain.Mass..g.")
+
+pcrflist <- list()
+for(i in 1:7){
+	pcrflist[[i]] <- read.csv(paste0("PCs_random_forest/PC", i, "_dnds_RF.csv"), header = T, row.names = 1)[vars,]
+}
+
+pcrf <- data.frame(variable = rep(vars, 7), importance = do.call("c", pcrflist))
+pcrf$run <- pcregres$run
+
+pcrf$variable <- factor(pcrf$variable, levels = unique(pcrf$variable))
+pcrf$variable <- factor(pcrf$variable, levels = rev(levels(pcrf$variable)))
+pcrf$run <- factor(pcrf$run, levels = rev(paste0("pc", 1:7)))
+
+pdf("Fig_PC_rf.pdf", height = 20, width = 7, useDingbats = F)
+
+ggplot(pcrf, aes(y = variable, x = importance, fill = run)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+  scale_fill_manual(values = color_palette) +  
+  labs(y = "Variable", x = "Importance", fill = "Run") +  
+  theme_bw() + 
+  theme(
+    axis.text.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 14), 
+    legend.position = "top" 
+  )
+
+dev.off()
+
+
+# Frequentist coefficient estimate and random forest importance plots for PCs - family traits
+
+vars[c(6, 15)] <- c("mean.beak.size.pc1", "mean.Latitude.span")
+
+pcreslist <- list()
+for(i in 1:7){
+	pcreslist[[i]] <- read.csv(paste0("PCs_freq/PC", i, ".dnds.csv"), header = T)
+	rownames(pcreslist[[i]]) <- pcreslist[[i]][,1]
+	pcreslist[[i]] <- pcreslist[[i]][vars,]
+	colnames(pcreslist[[i]])[1] <- "variable"
+}
+
+pcregres <- do.call("rbind", pcreslist)
+pcregres$run <- rep(paste0("pc", 1:7), each = 20)
+
+pcregres$run <- factor(pcregres$run, levels = rev(paste0("pc", 1:7)))
+
+pcregres$variable <- factor(pcregres$variable, levels = rev(unique(pcregres$variable))) 
+
+color_palette <- c(
+  "pc1" = "#440154",  # dark purple-blue
+  "pc2" = "#3B528B",  # deep blue
+  "pc3" = "#2C728E",  # bluish teal
+  "pc4" = "#21908C",  # blue-green
+  "pc5" = "#28A6A8",  # aqua blue
+  "pc6" = "#43BF9E",  # soft blue-green
+  "pc7" = "#5DC863"   # light teal
+)
+
+pdf("Fig_PC_freq.pdf", height = 20, width = 7, useDingbats = F)
+
+ggplot(pcregres, aes(y = variable, color = run)) +
+  geom_point(aes(x = Estimate, group = run), size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5, y = variable, group = run), 
+                 height = 0.2, size = 1.2, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black", size = 1) +
+  scale_color_manual(values = color_palette, name = "Run") + 
+  labs(y = "Variable", x = "Estimate with Credible Intervals", color = "Run") +  
+  theme_bw() +  
+  theme(
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 10),
+    legend.position = "top"  
+  )
+  
+dev.off()
+
+
+# Bayesian coefficient estimate and random forest importance plots for PCs - species traits
+
+orderedvars <- c(11, 12, 13, 17, 21, 2, 3, 4, 5, 6, 7, 10, 8, 9, 18, 19, 20, 14, 15, 16)
+
+pcreslist <- list()
+for(i in 1:7){
+	pcreslist[[i]] <- read.csv(paste0("PCs_species_Bayes/PC", i, "_dnds_species.csv"), header = T)[orderedvars,]
+	colnames(pcreslist[[i]])[1] <- "variable"
+}
+
+
+pcregres <- do.call("rbind", pcreslist)
+pcregres$run <- rep(paste0("pc", 1:7), each = 20)
+
+pcregres$run <- factor(pcregres$run, levels = rev(paste0("pc", 1:7)))
+
+pcregres$variable <- factor(pcregres$variable, levels = rev(unique(pcregres$variable))) 
+
+color_palette <- c(
+  "pc1" = "#440154",  # dark purple-blue
+  "pc2" = "#3B528B",  # deep blue
+  "pc3" = "#2C728E",  # bluish teal
+  "pc4" = "#21908C",  # blue-green
+  "pc5" = "#28A6A8",  # aqua blue
+  "pc6" = "#43BF9E",  # soft blue-green
+  "pc7" = "#5DC863"   # light teal
+)
+
+pdf("Fig_PC_species_bayes.pdf", height = 20, width = 7, useDingbats = F)
+
+ggplot(pcregres, aes(y = variable, color = run)) +
+  geom_point(aes(x = Estimate, group = run), size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5, y = variable, group = run), 
+                 height = 0.2, size = 1.2, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black", size = 1) +
+  scale_color_manual(values = color_palette, name = "Run") + 
+  labs(y = "Variable", x = "Estimate with Credible Intervals", color = "Run") +  
+  theme_bw() +  
+  theme(
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 10),
+    legend.position = "top"  
+  )
+  
+dev.off()
+
+
+vars <- gsub('_', '.', dnres[,1])
+vars[c(11)] <- c("mean.Brain.Mass..g.")
+
+pcrflist <- list()
+for(i in 1:7){
+	pcrflist[[i]] <- read.csv(paste0("PCs_species_random_forest/PC", i, "_dnds_species_RF.csv"), header = T, row.names = 1)[vars,]
+}
+
+pcrf <- data.frame(variable = rep(vars, 7), importance = do.call("c", pcrflist))
+pcrf$run <- pcregres$run
+
+pcrf$variable <- factor(pcrf$variable, levels = unique(pcrf$variable))
+pcrf$variable <- factor(pcrf$variable, levels = rev(levels(pcrf$variable)))
+pcrf$run <- factor(pcrf$run, levels = rev(paste0("pc", 1:7)))
+
+pdf("Fig_PC_species_rf.pdf", height = 20, width = 7, useDingbats = F)
+
+ggplot(pcrf, aes(y = variable, x = importance, fill = run)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+  scale_fill_manual(values = color_palette) +  
+  labs(y = "Variable", x = "Importance", fill = "Run") +  
+  theme_bw() + 
+  theme(
+    axis.text.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 14), 
+    legend.position = "top" 
+  )
+
+dev.off()
+
+
+# Frequentist coefficient estimate and random forest importance plots for PCs - species traits
+
+vars[c(6, 15)] <- c("mean.beak.size.pc1", "mean.Latitude.span")
+
+pcreslist <- list()
+for(i in 1:7){
+	pcreslist[[i]] <- read.csv(paste0("PCs_species_freq/PC", i, ".dnds.csv"), header = T)
+	rownames(pcreslist[[i]]) <- pcreslist[[i]][,1]
+	pcreslist[[i]] <- pcreslist[[i]][vars,]
+	colnames(pcreslist[[i]])[1] <- "variable"
+}
+
+
+pcregres <- do.call("rbind", pcreslist)
+pcregres$run <- rep(paste0("pc", 1:7), each = 20)
+
+pcregres$run <- factor(pcregres$run, levels = rev(paste0("pc", 1:7)))
+
+pcregres$variable <- factor(pcregres$variable, levels = rev(unique(pcregres$variable))) 
+
+color_palette <- c(
+  "pc1" = "#440154",  # dark purple-blue
+  "pc2" = "#3B528B",  # deep blue
+  "pc3" = "#2C728E",  # bluish teal
+  "pc4" = "#21908C",  # blue-green
+  "pc5" = "#28A6A8",  # aqua blue
+  "pc6" = "#43BF9E",  # soft blue-green
+  "pc7" = "#5DC863"   # light teal
+)
+
+pdf("Fig_PC_species_freq.pdf", height = 20, width = 7, useDingbats = F)
+
+ggplot(pcregres, aes(y = variable, color = run)) +
+  geom_point(aes(x = Estimate, group = run), size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5, y = variable, group = run), 
+                 height = 0.2, size = 1.2, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black", size = 1) +
+  scale_color_manual(values = color_palette, name = "Run") + 
+  labs(y = "Variable", x = "Estimate with Credible Intervals", color = "Run") +  
+  theme_bw() +  
+  theme(
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 10),
+    legend.position = "top"  
+  )
+  
+dev.off()
+

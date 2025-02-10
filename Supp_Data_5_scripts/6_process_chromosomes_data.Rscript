@@ -1,0 +1,165 @@
+library(phangorn)
+library(ClockstaRX)
+library(ggplot2)
+library(reshape2)
+library(viridis)
+library(tidyverse)
+library(phylolm)
+library(ggridges)
+library(plotly)
+library(crosstalk)
+library(colourvalues)
+source("brsPerTslice.R")
+load("alltrs.Rdata")
+load("crx_dn.Rdata")
+load("crx_ds.Rdata")
+load("crx_dnds.Rdata")
+load("crx_ran1.Rdata")
+load("crx_ran.Rdata")
+
+
+# Annotate ClockstaRX output
+
+sptr_unr <- unroot(sptr)
+rownames(crxdn[[1]]) <- names(dntrs)
+rownames(crxds[[1]]) <- names(dstrs)
+rownames(crxdnds[[1]]) <- names(dntrs)
+set.seed(1234)
+rownames(crxran1[[1]]) <- names(sample(rantrs, 10000))
+set.seed(1234)
+rantrs1 <- sample(rantrs, 10000)
+colnames(crxdn[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxds[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxdnds[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxran1[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxran_clocks[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+
+
+# Perform permutation test of mean rates per chromosome - are they significantly high or low, either across the whole tree, or in any particular branch?
+
+chromstab <- read.table("../chromosome_locations.txt",header = T)
+rownames(chromstab) <- chromstab$GALGAL_ID
+
+chromsdn <- chromsds <- chromsdnds <- chromstab[sapply(rownames(crxdn[[1]]), function(x) strsplit(x, split = "[.]")[[1]][1]), "chr"]
+#chromsran <- gsub("[.]/", "", sapply(rownames(crxran1[[1]]), function(x) strsplit(x, split = "_")[[1]][1]))
+chromsran <- gsub("[.]/", "", sapply(rownames(crxran_clocks[[1]]), function(x) strsplit(x, split = "_")[[1]][1]))
+#ratesdat <- list(crxdn[[1]], crxds[[1]], crxdnds[[1]], crxran1[[1]])
+ratesdat <- list(crxdn[[1]], crxds[[1]], crxdnds[[1]], crxran_clocks[[1]])
+chromsdat <- list(chromsdn, chromsds, chromsdnds, chromsran)
+
+
+# For each chromosome and each data set, perform the permutation test
+
+chroms <- c(paste0("chr", 1:28), "chrZ")
+zscoreschroms <- list()
+for(j in 1:length(chromsdat)){
+	zscoreschroms[[j]] <- list()
+	for(i in 1:length(chroms)){
+		zscoreschroms[[j]][[chroms[i]]] <- list()
+		chromi <- which(chromsdat[[j]] == chroms[i])
+		nchrom <- length(chromi)
+		if(nchrom < 2){
+			zscoreschroms[[j]][[i]][['brtest']] <- NA
+			zscoreschroms[[j]][[i]][['meantest']] <- NA
+			next
+		}
+		brsamp <- lapply(1:1000, function(x) colMeans(ratesdat[[j]][sample(1:nrow(ratesdat[[j]]), nchrom),], na.rm = T))
+		zscoreschroms[[j]][[i]][['brtest']] <- sapply(1:ncol(ratesdat[[j]]), function(x) (mean(ratesdat[[j]][chromi,x], na.rm = T) - mean(sapply(1:length(brsamp), function(y) brsamp[[y]][x]), na.rm = T)) / sd(sapply(brsamp, function(y) y[x]), na.rm = T))
+		zscoreschroms[[j]][[i]][['meantest']] <- (mean(colMeans(ratesdat[[j]][chromi,], na.rm = T), na.rm = T) - mean(sapply(1:length(brsamp), function(x) mean(brsamp[[x]], na.rm = T)), na.rm = T)) / sd(sapply(1:length(brsamp), function(x) mean(brsamp[[x]], na.rm = T)), na.rm = T)
+	}
+}
+names(zscoreschroms) <- c("dn", "ds", "dnds", "ran")
+
+nperchrom_coding <- sapply(1:length(chroms), function(x) length(which(chromsdat[[1]] == chroms[x])))
+nperchrom_interg <- sapply(1:length(chroms), function(x) length(which(chromsdat[[4]] == chroms[x])))
+
+ggzmeans <- as.data.frame(cbind(rep(names(zscoreschroms), each = length(chroms)), chroms, c(sapply(zscoreschroms[[1]], function(x) x$meantest), sapply(zscoreschroms[[2]], function(x) x$meantest), sapply(zscoreschroms[[3]], function(x) x$meantest), sapply(zscoreschroms[[4]], function(x) x$meantest))))
+colnames(ggzmeans) <- c("datatype", "chr", "zscore")
+ggzmeans$datatype <- factor(ggzmeans$datatype, levels = names(zscoreschroms))
+ggzmeans$chr <- factor(ggzmeans$chr, levels = chroms)
+ggzmeans$zscore <- as.numeric(ggzmeans$zscore)
+ggzmeans <- ggzmeans[order(ggzmeans$chr, decreasing = T),]
+
+
+# Plot z-score results for chromosomes
+
+pdf("Fig_rates_per_chromosome.pdf", height = 6, width = 3.5, useDingbats = F)
+ggplot(ggzmeans, aes(x = chr, y = zscore, color = datatype)) + geom_point() + coord_flip() + theme_bw() + geom_hline(yintercept = qnorm(c(0.01, 0.99)), linetype="dashed") + scale_color_viridis(discrete = T) 
+dev.off()
+
+pdf("Fig_rates_per_chromosome_2.pdf", height = 3.5, width = 6, useDingbats = F)
+ggplot(ggzmeans, aes(x = chr, y = zscore, color = datatype)) + geom_point() + theme_bw() + geom_hline(yintercept = qnorm(c(0.01, 0.99)), linetype="dashed") + scale_color_viridis(discrete = T) + theme(axis.text.x=element_text(angle = 90, hjust = 0)) + ylim(-5, 10)
+dev.off()
+
+
+# Given the results, plot tree of z-scores per branch for data types and chromosomes:
+# dn - 2, 16, 25
+# ds - 1, 16, 18, 22, 24, 25, 27
+# dnds - 7
+# ran - 16, 24
+
+pdf("rates_per_chrom_branch.pdf", height = 20, width = 10, useDingbats = F)
+for(i in c(2, 16, 25)){ plot(sptr_unr, cex = 0.4, edge.color = colour_values(zscoreschroms[[1]][[i]][[1]], palette = 'viridis'), main = paste0("dn chr ", i), edge.width = 3); edgelabels(round(zscoreschroms[[1]][[i]][[1]], 2), cex = 0.4, bg = 'white') }
+for(i in c(1, 16, 18, 22, 24, 25, 27)){ plot(sptr_unr, cex = 0.4, edge.color = colour_values(zscoreschroms[[2]][[i]][[1]], palette = 'viridis'), main = paste0("ds chr ", i), edge.width = 3); edgelabels(round(zscoreschroms[[2]][[i]][[1]], 2), cex = 0.4, bg = 'white') }
+for(i in c(7)){ plot(sptr_unr, cex = 0.4, edge.color = colour_values(zscoreschroms[[3]][[i]][[1]], palette = 'viridis'), main = paste0("dnds chr ", i), edge.width = 3); edgelabels(round(zscoreschroms[[3]][[i]][[1]], 2), cex = 0.4, bg = 'white') }
+for(i in c(16, 24)){ plot(sptr_unr, cex = 0.4, edge.color = colour_values(zscoreschroms[[4]][[i]][[1]], palette = 'viridis'), main = paste0("ran chr ", i), edge.width = 3); edgelabels(round(zscoreschroms[[4]][[i]][[1]], 2), cex = 0.4, bg = 'white') }
+dev.off()
+
+
+# Make figures of rates for each chromosome through time - 2D and 3D
+
+slices <- brsPerTslice(sptr, intsize = 0.2, unrootres = T)
+
+slicerateschromsdn <- list()
+slicerateschromsds <- list()
+slicerateschromsdnds <- list()
+slicerateschromsran <- list()
+for(k in 1:length(chroms)){
+	slicerateschromsdn[[k]] <- matrix(NA, nrow = length(which(chromsdn == chroms[k])), ncol = length(slices))
+	for(i in 1:length(slices)) for(j in 1:length(which(chromsdn == chroms[k]))) slicerateschromsdn[[k]][j, i] <- median(log(crxdn$raw.rates.matrix[which(chromsdn == chroms[k])[j], slices[[i]]]), na.rm = T)
+	for(j in 1:length(which(chromsdn == chroms[k]))) slicerateschromsdn[[k]][j,] <- slicerateschromsdn[[k]][j,] / median(slicerateschromsdn[[k]][j,], na.rm = T)
+	colnames(slicerateschromsdn[[k]]) <- names(slices)
+	rownames(slicerateschromsdn[[k]]) <- names(dntrs)[which(chromsdn == chroms[k])]
+	
+	slicerateschromsds[[k]] <- matrix(NA, nrow = length(which(chromsds == chroms[k])), ncol = length(slices))
+	for(i in 1:length(slices)) for(j in 1:length(which(chromsds == chroms[k]))) slicerateschromsds[[k]][j, i] <- median(log(crxds$raw.rates.matrix[which(chromsds == chroms[k])[j], slices[[i]]]), na.rm = T)
+	for(j in 1:length(which(chromsds == chroms[k]))) slicerateschromsds[[k]][j,] <- slicerateschromsds[[k]][j,] / median(slicerateschromsds[[k]][j,], na.rm = T)
+	colnames(slicerateschromsds[[k]]) <- names(slices)
+	rownames(slicerateschromsds[[k]]) <- names(dstrs)[which(chromsds == chroms[k])]
+	
+	slicerateschromsdnds[[k]] <- matrix(NA, nrow = length(which(chromsdnds == chroms[k])), ncol = length(slices))
+	for(i in 1:length(slices)) for(j in 1:length(which(chromsdnds == chroms[k]))) slicerateschromsdnds[[k]][j, i] <- median(log(crxdnds$raw.rates.matrix[which(chromsdnds == chroms[k])[j], slices[[i]]]), na.rm = T)
+	for(j in 1:length(which(chromsdnds == chroms[k]))) slicerateschromsdnds[[k]][j,] <- slicerateschromsdnds[[k]][j,] / median(slicerateschromsdnds[[k]][j,], na.rm = T)
+	colnames(slicerateschromsdnds[[k]]) <- names(slices)
+	rownames(slicerateschromsdnds[[k]]) <- names(dntrs)[which(chromsdnds == chroms[k])]
+	
+	slicerateschromsran[[k]] <- matrix(NA, nrow = length(which(chromsran == chroms[k])), ncol = length(slices))
+	for(i in 1:length(slices)) for(j in 1:length(which(chromsran == chroms[k]))) slicerateschromsran[[k]][j, i] <- median(log(crxran_clocks$raw.rates.matrix[which(chromsran == chroms[k])[j], slices[[i]]]), na.rm = T)
+	for(j in 1:length(which(chromsran == chroms[k]))) slicerateschromsran[[k]][j,] <- slicerateschromsran[[k]][j,] / median(slicerateschromsran[[k]][j,], na.rm = T)
+	colnames(slicerateschromsran[[k]]) <- names(slices)
+	rownames(slicerateschromsran[[k]]) <- names(rantrs)[which(chromsran == chroms[k])]
+	print(k)
+}
+
+pdf("rates_per_chrom_through_time.pdf", height = 12, width = 5, useDingbats = F)
+par(mfrow = c(4, 1))
+plot(as.numeric(colnames(slicerateschromsdn[[1]]))*-1, predict(loess(apply(slicerateschromsdn[[1]], 2, median, na.rm = T) ~ as.numeric(colnames(slicerateschromsdn[[1]]))*-1, span = 0.05)), type = "l", col = viridis(length(chroms))[1], ylim = c(0.92, 1.02), xlab = "Time (My)", ylab = "Relative dn  within locus")
+for(i in 2:length(chroms)) lines(as.numeric(colnames(slicerateschromsdn[[i]]))*-1, predict(loess(apply(slicerateschromsdn[[i]], 2, median, na.rm = T) ~ as.numeric(colnames(slicerateschromsdn[[i]]))*-1, span = 0.05)), type = "l", col = viridis(length(chroms))[i])
+abline(h = 1, lwd = 0.7)
+abline(v = -66, lty = 2)
+
+plot(as.numeric(colnames(slicerateschromsds[[1]]))*-1, predict(loess(apply(slicerateschromsds[[1]], 2, median, na.rm = T) ~ as.numeric(colnames(slicerateschromsds[[1]]))*-1, span = 0.05)), type = "l", col = viridis(length(chroms))[1], ylim = c(0.7, 1.05), xlab = "Time (My)", ylab = "Relative ds  within locus")
+for(i in 2:length(chroms)) lines(as.numeric(colnames(slicerateschromsds[[i]]))*-1, predict(loess(apply(slicerateschromsds[[i]], 2, median, na.rm = T) ~ as.numeric(colnames(slicerateschromsds[[i]]))*-1, span = 0.05)), type = "l", col = viridis(length(chroms))[i])
+abline(h = 1, lwd = 0.7)
+abline(v = -66, lty = 2)
+
+plot(as.numeric(colnames(slicerateschromsdnds[[1]]))*-1, predict(loess(apply(slicerateschromsdnds[[1]], 2, median, na.rm = T) ~ as.numeric(colnames(slicerateschromsdnds[[1]]))*-1, span = 0.05)), type = "l", col = viridis(length(chroms))[1], ylim = c(0.79, 1.1), xlab = "Time (My)", ylab = "Relative dnds  within locus")
+for(i in 2:length(chroms)) lines(as.numeric(colnames(slicerateschromsdnds[[i]]))*-1, predict(loess(apply(slicerateschromsdnds[[i]], 2, median, na.rm = T) ~ as.numeric(colnames(slicerateschromsdnds[[i]]))*-1, span = 0.05)), type = "l", col = viridis(length(chroms))[i])
+abline(h = 1, lwd = 0.7)
+abline(v = -66, lty = 2)
+
+plot(as.numeric(colnames(slicerateschromsran[[1]]))*-1, predict(loess(apply(slicerateschromsran[[1]], 2, median, na.rm = T) ~ as.numeric(colnames(slicerateschromsran[[1]]))*-1, span = 0.05)), type = "l", col = viridis(length(chroms))[1], ylim = c(0.8, 1.05), xlab = "Time (My)", ylab = "Relative ran  within locus")
+for(i in 2:length(chroms)) lines(as.numeric(colnames(slicerateschromsran[[i]]))*-1, predict(loess(apply(slicerateschromsran[[i]], 2, median, na.rm = T) ~ as.numeric(colnames(slicerateschromsran[[i]]))*-1, span = 0.05)), type = "l", col = viridis(length(chroms))[i])
+abline(h = 1, lwd = 0.7)
+abline(v = -66, lty = 2)
+dev.off()

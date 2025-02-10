@@ -1,0 +1,104 @@
+library(phangorn)
+library(phylolm)
+library(arm)
+
+sptr <- read.tree("family_level_avian_tree.tre")
+
+
+### Load data sets for all regression analyses
+
+moldat <- read.csv("Supp_File_3_data_sets_for_regression/regressions_data_Bayes_lineage_rates_y.csv", header = T, row.names = 1)
+pcdat <- read.csv("Supp_File_3_data_sets_for_regression/regressions_data_Bayes_PCs_y.csv", header = T, row.names = 1)
+
+
+# Load data using family averages
+
+familytraits <- read.csv("Supp_File_3_data_sets_for_regression/regressions_data_Bayes_family_x.csv", header = T, row.names = 1)
+
+
+# Load data using single species trait data (corresponding to sequenced species)
+
+speciestraits <- read.csv("Supp_File_3_data_sets_for_regression/regressions_data_Bayes_species_x.csv", header = T, row.names = 1)
+
+
+# Run regressions for each molecular variable and PC at the level of family
+
+for(i in 1:ncol(familytraits)) if(is.numeric(familytraits[,i])) familytraits[,i] <-arm::rescale(familytraits[,i])
+
+dat <- cbind(moldat, pcdat, familytraits)
+
+regres <- lapply(1:45, function(x)
+	phylolm(formula(paste0(colnames(dat)[x], "~", 
+	paste0(colnames(dat)[c(46:62,64:68)], collapse = "+"))), 
+	data = dat, 
+	phy = sptr, 
+	model = "lambda"))
+names(regres) <- colnames(dat)[1:45]
+
+regres_sum <- lapply(regres, summary)
+
+regcoefs <- list()
+for(i in 1:length(regres_sum)){
+	coefs <- as.data.frame(regres_sum[[i]]$coefficients)
+	coefs$Q2.5 <- coefs$Estimate - (1.96 * coefs$StdErr)
+	coefs$Q97.5 <- coefs$Estimate + (1.96 * coefs$StdErr)
+	regcoefs[[i]] <- coefs
+	write.csv(coefs, file = paste0("Supp_File_4_regression_results/", names(regres_sum)[i], ".csv"))
+}
+names(regcoefs) <- names(regres_sum)
+
+
+# Regressions for each molecular variable and PC at the level of species
+
+for(i in 1:ncol(speciestraits)) if(is.numeric(speciestraits[,i])) speciestraits[,i] <-arm::rescale(speciestraits[,i])
+
+dat_sp <- cbind(moldat, pcdat, speciestraits)
+
+regres_sp <- lapply(1:45, function(x)
+	phylolm(formula(paste0(colnames(dat_sp)[x], "~", 
+	paste0(colnames(dat_sp)[c(46:62,64:68)], collapse = "+"))), 
+	data = dat_sp, 
+	phy = sptr, 
+	model = "lambda"))
+names(regres_sp) <- colnames(dat_sp)[1:45]
+
+regres_sum_sp <- lapply(regres_sp, summary)
+
+
+regcoefs_sp <- list()
+for(i in 1:length(regres_sum_sp)){
+	coefs <- as.data.frame(regres_sum_sp[[i]]$coefficients)
+	coefs$Q2.5 <- coefs$Estimate - (1.96 * coefs$StdErr)
+	coefs$Q97.5 <- coefs$Estimate + (1.96 * coefs$StdErr)
+	regcoefs_sp[[i]] <- coefs
+	write.csv(coefs, file = paste0("Supp_File_4_regression_results/", names(regres_sum_sp)[i], ".csv"))
+}
+names(regcoefs_sp) <- names(regres_sum_sp)
+
+
+# Make scatterplot for a subset of variables.
+
+datclutch <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.clutch.size))
+colnames(datclutch) <- c("datatype", "rate", "logclutchsize")
+dattars <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.Tarsus.Length))
+colnames(dattars) <- c("datatype", "rate", "logtarslength")
+datbrain <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.Brain.Mass..g.))
+colnames(datbrain) <- c("datatype", "rate", "logbrainmass")
+datbeakd <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.Beak.Depth))
+colnames(datbeakd) <- c("datatype", "rate", "logbeakdepth")
+datgenlen <- cbind(melt(dat[,c("dn", "ds", "dnds", "ran")]), log(dat$mean.GenLength))
+colnames(datgenlen) <- c("datatype", "rate", "loggenlength")
+
+cbp1 <- c("#D55E00", "#E69F00", "#009E73", "#0072B2")
+
+pdf("Fig_clutch_tars_brain_regression.pdf", height = 6, width = 7, useDingbats = F)
+ggplot(datclutch, aes(x = logclutchsize, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
+
+ggplot(dattars, aes(x = logtarslength, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
+
+ggplot(datbrain, aes(x = logbrainmass, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
+
+ggplot(datbeakd, aes(x = logbeakdepth, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
+
+ggplot(datgenlen, aes(x = loggenlength, y = rate, group = datatype)) + geom_point(aes(shape = datatype, color = datatype)) + theme_bw() + scale_color_manual(values=cbp1)
+dev.off()

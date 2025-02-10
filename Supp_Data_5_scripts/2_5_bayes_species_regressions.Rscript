@@ -1,0 +1,109 @@
+library(brms)
+library(arm)
+
+
+# Load data sets
+
+xpath = 'regressions_data_Bayes_species_x.csv'
+ypath = 'y_data-raw.csv'
+X=read.csv(xpath)
+X = X[,2:ncol(X)]
+
+y = read.csv(ypath)
+out = list()
+choices = colnames(y)[2:ncol(y)]
+
+
+# Start parallel computing
+
+library(doParallel)
+registerDoParallel(42)
+out = foreach(choice = 1:length(choices)) %dopar% {
+
+	X=read.csv(xpath)
+	X = X[,2:ncol(X)]
+
+	y = read.csv(ypath)
+	y = y[,choices[choice]]
+	
+	
+	# Prepare data format
+
+	X$mode.Habitat = as.factor(X$mode.Habitat)
+	X$mode.Trophic.Level = as.factor(X$mode.Trophic.Level)
+	X$mode.Primary.Lifestyle = as.factor(X$mode.Primary.Lifestyle)
+	#options(na.action='na.pass')
+
+	#X = model.matrix(as.formula(paste0('~-1+',paste0(colnames(X),collapse='+'))),X)
+
+	X <- X[, !apply(X, 2, anyNA)]
+	nms = colnames(X)
+	nms = gsub("\\.\\.", ".", nms)
+	nms = gsub('\\.','_',nms)
+	nms = gsub('_$','',nms)
+
+	#nms = gsub(' ','_',nms)
+	#nms = gsub('\\__','_',nms)
+
+	colnames(X) = nms
+	Z = X[,colnames(X)%in% c("mode_Habitat","mode_Trophic_Level","mode_Primary_Lifestyle")]
+	X = X[,!colnames(X)%in% c("mode_Habitat","mode_Trophic_Level","mode_Primary_Lifestyle")]
+
+	X = arm::rescale(as.matrix(X))
+	
+	
+	# Read species tree and run regression analysis
+
+	#V = read.csv('/home/sjbhatt/brownian_vcov.csv')
+	#V = V[,2:ncol(V)]
+	library(phangorn)
+	 phylo=read.tree('/home/sjbhatt/sptr.tre')
+ 	#phylo$edge.length = phylo$edge.length * 1e6
+	V <- ape::vcv.phylo(phylo,corr=TRUE)
+
+
+	data = as.data.frame(X)
+	data$y = y
+	data$phylo = colnames(V)
+	data = cbind(data,Z)
+
+	fixed_effects <- paste0(colnames(X), collapse = ' + ')
+
+	# Define the random effects formula
+	random_effects <- "(1|mode_Habitat) + (1|mode_Trophic_Level) + (1|mode_Primary_Lifestyle) + (1|gr(phylo, cov = V))"
+	# Combine fixed and random effects into the full formula
+	full_formula <- as.formula(paste0('y ~ ', fixed_effects, ' + ', random_effects))
+
+	options(mc.cores = parallel::detectCores())
+	# Fit the model using brms
+	m <- brm(
+	  formula = full_formula,
+	  data = data,
+	  family = gaussian(),
+	  data2 = list(V = V),
+	  chains = 4,
+	  cores = 1,
+	  iter = 10000,
+	  thin = 1,
+	  control = list(adapt_delta = 0.99, max_treedepth = 15),
+	  prior = c(
+		prior(normal(0, 5), "b"),
+		prior(normal(0, 5), "Intercept"),
+		prior(student_t(3, 0, 5), "sd"),
+		prior(student_t(3, 0, 5), "sigma")
+	  )
+	)
+}
+
+
+# Save results
+
+for(i in 1:length(choices)){
+	coef_data <- fixef(out[[i]])
+	coef_df <- as.data.frame(coef_data)
+	response_name = choices[i]
+	response_name = gsub("\\.","_",response_name)
+	csv_name = paste0("/home/sjbhatt/",response_name,"_species.csv")
+	write.csv(coef_df, csv_name, row.names = TRUE)
+
+}

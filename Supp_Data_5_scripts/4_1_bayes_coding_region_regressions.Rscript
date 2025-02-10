@@ -1,0 +1,87 @@
+library(brms)
+library(arm)
+
+
+# Load data sets
+
+xpath = 'x_data_genes.csv'
+ypath = 'y_data_genes.csv'
+X=read.csv(xpath)
+X = X[,2:ncol(X)]
+X$genlen = log(X$genlen)
+y = read.csv(ypath)
+out = list()
+choices = colnames(y)[2:ncol(y)]
+
+
+# Start parallel computing
+
+library(doParallel)
+registerDoParallel(42)
+out = foreach(choice = 1:length(choices)) %dopar% {
+
+	X=read.csv(xpath)
+	X = X[,2:ncol(X)]
+	X$genlen = log(X$genlen)
+	y = read.csv(ypath)
+	y = y[,choices[choice]]
+	
+	
+	# Prepare data formatting
+	
+	wh = complete.cases(X)
+	X = X[wh,]
+	y = y[wh]
+
+
+	X <- X[, !apply(X, 2, anyNA)]
+	nms = colnames(X)
+	nms = gsub("\\.\\.", ".", nms)
+	nms = gsub('\\.','_',nms)
+	nms = gsub('_$','',nms)
+
+	colnames(X) = nms
+
+	X = arm::rescale(as.matrix(X))
+
+	data = as.data.frame(X)
+	data$y = y
+	
+	
+	# Run regression analyses
+	
+	fixed_effects <- paste0(colnames(X), collapse = ' * ')
+
+	full_formula <- as.formula(paste0('y ~ symmetry_pval + (log(genlen) + gcgenes + genproploc)^2'))
+
+	options(mc.cores = parallel::detectCores())
+	m <- brm(
+	  formula = full_formula,
+	  data = data,
+	  family = gaussian(),
+	  chains = 4,
+	  cores = 1,
+	  iter = 10000,
+	  thin = 1,
+	  control = list(adapt_delta = 0.99, max_treedepth = 15),
+	  prior = c(
+		prior(normal(0, 5), "b"),
+		prior(normal(0, 5), "Intercept"),
+		prior(student_t(3, 0, 5), "sigma")
+	  )
+	)
+}
+
+
+# Save results
+
+for(i in 1:length(choices)){
+	coef_data <- fixef(out[[i]])
+	coef_df <- as.data.frame(coef_data)
+	response_name = choices[i]
+	response_name = gsub("\\.","_",response_name)
+	csv_name = paste0("/home/sjbhatt/",response_name,".csv")
+	write.csv(coef_df, csv_name, row.names = TRUE)
+
+}
+

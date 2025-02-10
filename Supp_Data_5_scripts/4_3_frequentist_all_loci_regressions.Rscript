@@ -1,0 +1,62 @@
+# Load regressions data set for intergenic regions
+
+randat <- read.csv("regressions_data_intergenic_regions.csv", header = 1, row.names = 1)
+
+
+# Run multiple regressions (mean rates and values at PCs) and model averaging
+
+ranmod <- list()
+ranmodadequacy <- list()
+for(i in 1:17){
+	ranmod[[i]] <- glm(as.formula(paste0(colnames(randat)[i+4], " ~ loc + gc + gc:loc")), data = randat)
+
+
+# Example analysis with model adequacy test of marginal symmetry
+
+	ranmodadequacy[[i]] <- glm(as.formula(paste0(colnames(randat)[i+4], " ~ loc + gc + symmetry.pval + gc:loc")), data = randat)
+}
+
+ranmodgc <- lapply(1:17, function(x) glm(as.formula(paste0(colnames(randat)[x+4], " ~ gc")), data = randat, na.action = 'na.fail'))
+ranmodloc <- lapply(1:17, function(x) glm(as.formula(paste0(colnames(randat)[x+4], " ~ loc")), data = randat, na.action = 'na.fail'))
+ranmodgcrange <- lapply(1:17, function(x) glm(as.formula(paste0(colnames(randat)[x+4], " ~ sqrt(gcranrange)")), data = randat, na.action = 'na.fail'))
+
+names(ranmod) <- names(ranmodadequacy) <- names(ranmodgc) <- names(ranmodloc) <- names(ranmodgcrange) <- colnames(randat)[5:21]
+
+
+# Load regressions data set for coding regions
+
+genesdat <- read.csv("regressions_data_coding_regions.csv", header = 1, row.names = 1)
+
+
+# Run multiple regressions (mean rates and values at PCs) and model averaging
+
+genemod <- list()
+genemodadequacy <- list()
+for(i in 1:28){
+	genemod[[i]] <- glm(as.formula(paste0(colnames(genesdat)[i+5], " ~ (log(genlen) + gcgenes + genproploc)^2")), data = genesdat)
+
+
+# Example analysis with model adequacy test of marginal symmetry
+
+	genemodadequacy[[i]] <- glm(as.formula(paste0(colnames(genesdat)[i+5], " ~ symmetry.pval + (log(genlen) + gcgenes + genproploc)^2")), data = genesdat)
+}
+
+genemodgc <- lapply(1:28, function(x) glm(as.formula(paste0(colnames(genesdat)[x+5], " ~ gcgenes")), data = genesdat, na.action = 'na.fail') )
+genemodlen <- lapply(1:28, function(x) glm(as.formula(paste0(colnames(genesdat)[x+5], " ~ log(genlen)")), data = genesdat, na.action = 'na.fail') )
+genemodgcrange <- lapply(1:28, function(x) glm(as.formula(paste0(colnames(genesdat)[x+5], " ~ sqrt(gcrangegenes)")), data = genesdat, na.action = 'na.fail') )
+genemodloc <- lapply(1:28, function(x) glm(as.formula(paste0(colnames(genesdat)[x+5], " ~ genproploc")), data = genesdat, na.action = 'na.fail') )
+
+names(genemod) <- names(genemodadequacy) <- names(genemodgc) <- names(genemodlen) <- names(genemodgcrange) <- names(genemodloc) <- colnames(genesdat)[6:33]
+
+adeq_runs <- c(lapply(genemodadequacy, summary)[c(1, 10, 21)], lapply(ranmodadequacy, summary)[1])
+names(adeq_runs) <- c(names(genemodadequacy)[c(1, 10, 21)], names(ranmodadequacy)[1])
+
+regcoefs <- list()
+for(i in 1:length(adeq_runs)){
+        coefs <- as.data.frame(adeq_runs[[i]]$coefficients)
+        coefs$Q2.5 <- coefs$Estimate - (1.96 * coefs[,"Std. Error"])
+        coefs$Q97.5 <- coefs$Estimate + (1.96 * coefs[,"Std. Error"])
+        regcoefs[[i]] <- coefs
+        write.csv(coefs, file = paste0(names(adeq_runs)[i], ".csv"))
+}
+names(regcoefs) <- names(adeq_runs)

@@ -1,0 +1,645 @@
+library(phangorn)
+library(ClockstaRX)
+library(ggplot2)
+library(reshape2)
+library(viridis)
+library(tidyverse)
+library(phylolm)
+library(ggridges)
+library(plotly)
+library(crosstalk)
+library(clusterProfiler)
+library(enrichplot)
+library(pathview)
+library(org.Gg.eg.db)
+load("alltrs.Rdata")
+load("crx_dn.Rdata")
+load("crx_ds.Rdata")
+load("crx_dnds.Rdata")
+load("crx_ran1.Rdata")
+
+sptr_unr <- unroot(sptr)
+
+
+# Make barplots of taxon contributions to PCs including all branches
+
+pdf("Fig_PC_taxon_contribution.pdf", width = 40, height = 5, useDingbats = F)
+pctaxdn <- (crxdn$weighted.pca.clock.space$empPCA$rotation^2)*100
+rownames(pctaxdn)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxdn$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- 1
+colsmat[which(colsmat <= 0.01)] <- 2
+for(i in 1:20) if(crxdn$weighted.pca.clock.space$pPCs[i] > 0.01) break else barplot(pctaxdn[order(pctaxdn[,i], decreasing=T),i], las = 2, cex.names = 0.5, ylab = paste0("dN PC", i), col = colsmat[order(pctaxdn[,i], decreasing=T),i])
+
+pctaxds <- (crxds$weighted.pca.clock.space$empPCA$rotation^2)*100
+rownames(pctaxds)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxds$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- 1
+colsmat[which(colsmat <= 0.01)] <- 2
+for(i in 1:20) if(crxds$weighted.pca.clock.space$pPCs[i] > 0.01) break else barplot(pctaxds[order(pctaxds[,i], decreasing=T),i], las = 2, cex.names = 0.5, ylab = paste0("dS PC", i), col = colsmat[order(pctaxdn[,i], decreasing=T),i])
+
+pctaxdnds <- (crxdnds$weighted.pca.clock.space$empPCA$rotation^2)*100
+rownames(pctaxdnds)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxdnds$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- 1
+colsmat[which(colsmat <= 0.01)] <- 2
+for(i in 1:20) if(crxdnds$weighted.pca.clock.space$pPCs[i] > 0.01) break else barplot(pctaxdnds[order(pctaxdnds[,i], decreasing=T),i], las = 2, cex.names = 0.5, ylab = paste0("dNdS PC", i), col = colsmat[order(pctaxdnds[,i], decreasing=T),i])
+
+pctaxran <- (crxran1$weighted.pca.clock.space$empPCA$rotation^2)*100
+rownames(pctaxran)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxran1$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- 1
+colsmat[which(colsmat <= 0.01)] <- 2
+for(i in 1:20) if(crxran1$weighted.pca.clock.space$pPCs[i] > 0.01) break else barplot(pctaxran[order(pctaxran[,i], decreasing=T),i], las = 2, cex.names = 0.5, ylab = paste0("Random PC", i), col = colsmat[order(pctaxdn[,i], decreasing=T),i])
+dev.off()
+
+
+# Make barplots of taxon contributions per PC - top 10 branches & significant PCs
+
+pdf("Fig_PC_taxon_contributions_top10tax.pdf", width = 80, height = 16, useDingbats = F)
+par(mfrow = c(4, 20))
+pctaxdn <- (crxdn$weighted.pca.clock.space$empPCA$rotation^2)*100
+pcperc <- round((crxdn$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxdn$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+rownames(pctaxdn)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxdn$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
+colsmat[which(colsmat != "#D3D3D3")] <- "#36454F"
+for(i in 1:20) if(crxdn$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(pctaxdn[order(pctaxdn[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("dN PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdn[,i], decreasing=T),i], ylim = c(0, 2.5), border = NA)
+
+pctaxds <- (crxds$weighted.pca.clock.space$empPCA$rotation^2)*100
+pcperc <- round((crxds$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxds$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+rownames(pctaxds)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxds$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
+colsmat[which(colsmat != "#D3D3D3")] <- "#36454F"
+for(i in 1:20) if(crxds$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(pctaxds[order(pctaxds[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("dS PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdn[,i], decreasing=T),i], ylim = c(0, max(pctaxds[order(pctaxds[,i], decreasing=T),1:3])), border = NA)
+
+pctaxdnds <- (crxdnds$weighted.pca.clock.space$empPCA$rotation^2)*100
+pcperc <- round((crxdnds$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxdnds$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+rownames(pctaxdnds)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxdnds$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
+colsmat[which(colsmat != "#D3D3D3")] <- "#36454F"
+for(i in 1:20) if(crxdnds$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(pctaxdnds[order(pctaxdnds[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("dNdS PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdnds[,i], decreasing=T),i], ylim = c(0, max(pctaxdnds[order(pctaxdnds[,i], decreasing=T),1:3])), border = NA)
+
+pctaxran <- (crxran1$weighted.pca.clock.space$empPCA$rotation^2)*100
+pcperc <- round((crxran1$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxran1$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+rownames(pctaxran)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxran1$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
+colsmat[which(colsmat != "#D3D3D3")] <- "#36454F"
+for(i in 1:20) if(crxran1$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(pctaxran[order(pctaxran[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("Random PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdn[,i], decreasing=T),i], ylim = c(0, max(pctaxran[order(pctaxran[,i], decreasing=T),1:3])), border = NA)
+dev.off()
+
+
+# Make barplots of taxon directions per PC - top 10 branches & significant PCs
+
+pdf("Fig_PC_taxon_directions_top10tax.pdf", width = 80, height = 16, useDingbats = F)
+par(mfrow = c(4, 20))
+pctaxdn <- (crxdn$weighted.pca.clock.space$empPCA$rotation^2)*100
+pcperc <- round((crxdn$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxdn$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+rownames(crxdn$weighted.pca.clock.space$empPCA$rotation)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxdn$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
+colsmat[which(colsmat != "#D3D3D3")] <- "#EF5D5E"
+for(i in 1:20) if(crxdn$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(crxdn$weighted.pca.clock.space$empPCA$rotation[order(pctaxdn[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("dN PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdn[,i], decreasing=T),i], ylim = c(-0.2, 0.15), border = NA)
+
+pctaxds <- (crxds$weighted.pca.clock.space$empPCA$rotation^2)*100
+pcperc <- round((crxds$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxds$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+rownames(crxds$weighted.pca.clock.space$empPCA$rotation)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxds$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
+colsmat[which(colsmat != "#D3D3D3")] <- "#EF5D5E"
+for(i in 1:20) if(crxds$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(crxds$weighted.pca.clock.space$empPCA$rotation[order(pctaxds[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("dS PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdn[,i], decreasing=T),i], ylim = c(-0.15,0.22), border = NA)
+
+pctaxdnds <- (crxdnds$weighted.pca.clock.space$empPCA$rotation^2)*100
+pcperc <- round((crxdnds$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxdnds$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+rownames(crxdnds$weighted.pca.clock.space$empPCA$rotation)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxdnds$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
+colsmat[which(colsmat != "#D3D3D3")] <- "#EF5D5E"
+for(i in 1:20) if(crxdnds$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(crxdnds$weighted.pca.clock.space$empPCA$rotation[order(pctaxdnds[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("dNdS PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdnds[,i], decreasing=T),i], ylim = c(-0.17, 0.12), border = NA)
+
+pctaxran <- (crxran1$weighted.pca.clock.space$empPCA$rotation^2)*100
+pcperc <- round((crxran1$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxran1$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+rownames(crxran1$weighted.pca.clock.space$empPCA$rotation)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colsmat <- crxran1$weighted.pca.clock.space$pIL
+colsmat[which(colsmat > 0.01)] <- "#D3D3D3"
+colsmat[which(colsmat != "#D3D3D3")] <- "#EF5D5E"
+for(i in 1:20) if(crxran1$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else barplot(crxran1$weighted.pca.clock.space$empPCA$rotation[order(pctaxran[,i], decreasing=T)[1:10],i], las = 2, cex.names = 0.5, ylab = paste0("Random PC", i, "(", pcperc[i], "%)"), col = colsmat[order(pctaxdn[,i], decreasing=T),i], ylim = c(-0.12, 0.2), border = NA)
+dev.off()
+
+
+# Plot trees of taxon directions per PC - top 10 branches & top PCs
+
+sptr_dummy <- sptr_unr
+sptr_dummy$edge.length <- 1:Nedge(sptr_dummy)
+rooted_brIDs <- ape::root(sptr_dummy, node = 223, resolve.root=T)$edge.length
+rooted_brIDs[rooted_brIDs == 0] <- 1
+
+pdf("Fig_PC_trees_taxon_directions.pdf", width = 70, height = 7, useDingbats = F)
+par(mfrow = c(1, 10))
+for(i in 1:10) if(crxdn$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else{
+	pcperc <- round((crxdn$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxdn$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+	brcols <- colour_values(crxdn$weighted.pca.clock.space$empPCA$rotation[,i], palette = 'magma')
+	brcols[crxdn$weighted.pca.clock.space$pIL[,i] > 0.01] <- "#808080"
+	brcols <- brcols[rooted_brIDs]
+	colran <- round(range(crxdn$weighted.pca.clock.space$empPCA$rotation[crxdn$weighted.pca.clock.space$pIL[,i] <= 0.01,i]), 3)
+	plot(sptr, type = "fan", cex = 0.4, edge.width = 3, edge.color= brcols, main = paste0("dN PC", i, "(", pcperc[i], "%) [", colran[1], " to ", colran[2], "]"), show.tip.label = F)
+}
+
+for(i in 1:10) if(crxds$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else{
+	pcperc <- round((crxds$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxds$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+	brcols <- colour_values(crxds$weighted.pca.clock.space$empPCA$rotation[,i], palette = 'magma')
+	brcols[crxds$weighted.pca.clock.space$pIL[,i] > 0.01] <- "#808080"
+	brcols <- brcols[rooted_brIDs]
+	colran <- round(range(crxds$weighted.pca.clock.space$empPCA$rotation[crxds$weighted.pca.clock.space$pIL[,i] <= 0.01,i]), 3)
+	plot(sptr, type = "fan", cex = 0.4, edge.width = 3, edge.color= brcols, main = paste0("ds PC", i, "(", pcperc[i], "%) [", colran[1], " to ", colran[2], "]"), show.tip.label = F)
+}
+
+for(i in 1:10) if(crxdnds$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else{
+	pcperc <- round((crxdnds$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxdnds$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+	brcols <- colour_values(crxdnds$weighted.pca.clock.space$empPCA$rotation[,i], palette = 'magma')
+	brcols[crxdnds$weighted.pca.clock.space$pIL[,i] > 0.01] <- "#808080"
+	brcols <- brcols[rooted_brIDs]
+	colran <- round(range(crxdnds$weighted.pca.clock.space$empPCA$rotation[crxdnds$weighted.pca.clock.space$pIL[,i] <= 0.01,i]), 3)
+	plot(sptr, type = "fan", cex = 0.4, edge.width = 3, edge.color= brcols, main = paste0("dnds PC", i, "(", pcperc[i], "%) [", colran[1], " to ", colran[2], "]"), show.tip.label = F)
+}
+
+for(i in 1:10) if(crxran1$weighted.pca.clock.space$pPCs[i] > 0.01) frame() else{
+	pcperc <- round((crxran1$weighted.pca.clock.space$empPCA$sdev^2) / sum(crxran1$weighted.pca.clock.space$empPCA$sdev^2), 4) * 100
+	brcols <- colour_values(crxran1$weighted.pca.clock.space$empPCA$rotation[,i], palette = 'magma')
+	brcols[crxran1$weighted.pca.clock.space$pIL[,i] > 0.01] <- "#808080"
+	brcols <- brcols[rooted_brIDs]
+	colran <- round(range(crxran1$weighted.pca.clock.space$empPCA$rotation[crxran1$weighted.pca.clock.space$pIL[,i] <= 0.01,i]), 3)
+	plot(sptr, type = "fan", cex = 0.4, edge.width = 3, edge.color= brcols, main = paste0("ran1 PC", i, "(", pcperc[i], "%) [", colran[1], " to ", colran[2], "]"), show.tip.label = F)
+}
+
+dev.off()
+
+
+# Extract gene names
+
+setwd("~/Desktop/Research/auk")
+blasts <- unlist(sapply(dir("blastSearches"), function(x) readLines(paste0("blastSearches/", x))))
+setwd("~/Desktop/Research/b10k_rates/crx/")
+blasts <- grep(">", blasts, value = T)
+blasts <- sapply(blasts, function(x) gsub("[)].*|.*[(]", "", x))
+names(blasts) <- sapply(names(blasts), function(x) strsplit(x, split = "[.]")[[1]][1])
+blasts <- blasts[!grepl(">", blasts)]
+blasts <- gsub(" gene", "", blasts)
+
+rownames(crxdn$weighted.pca.clock.space$empPCA$x) <- names(dntrs)
+rownames(crxds$weighted.pca.clock.space$empPCA$x) <- names(dstrs)
+rownames(crxdnds$weighted.pca.clock.space$empPCA$x) <- names(dntrs)
+rownames(crxdn$raw.rates.matrix) <- names(dntrs)
+rownames(crxds$raw.rates.matrix) <- names(dstrs)
+rownames(crxdnds$raw.rates.matrix) <- names(dntrs)
+
+
+# Extract gene rates and link to names
+
+dnrates <- crxdn$weighted.pca.clock.space$empPCA$x[which(sapply(rownames(crxdn$raw.rates.matrix), function(x) strsplit(x, split = "[.]")[[1]][1]) %in% names(blasts)),]
+rownames(dnrates) <- blasts[sapply(rownames(dnrates), function(x) strsplit(x, split = "[.]")[[1]][1])]
+dsrates <- crxds$weighted.pca.clock.space$empPCA$x[which(sapply(rownames(crxds$raw.rates.matrix), function(x) strsplit(x, split = "[.]")[[1]][1]) %in% names(blasts)),]
+rownames(dsrates) <- blasts[sapply(rownames(dsrates), function(x) strsplit(x, split = "[.]")[[1]][1])]
+dndsrates <- crxdnds$weighted.pca.clock.space$empPCA$x[which(sapply(rownames(crxdnds$raw.rates.matrix), function(x) strsplit(x, split = "[.]")[[1]][1]) %in% names(blasts)),]
+rownames(dndsrates) <- blasts[sapply(rownames(dndsrates), function(x) strsplit(x, split = "[.]")[[1]][1])]
+
+
+# Extract genes with extreme rates, sort them, and run GO and KEGG enrichment analysis - taking the top and bottom 20% of genes, and using an enrichment p-value cutoff of 0.01
+
+organism <- "org.Gg.eg.db"
+gsedn <- list()
+gseds <- list()
+gsednds <- list()
+for(i in 1:20){
+	if(crxdn$weighted.pca.clock.space$pPCs[i] < 0.01){
+		gsedn[[paste0("dN_PC", i)]] <- list()
+		gsedn[[paste0("dN_PC", i)]][["genes_high"]] <- sort(dnrates[which(dnrates[,i] > quantile(dnrates[,i], 0.8, na.rm = T)),i], decreasing = T)
+		gsedn[[paste0("dN_PC", i)]][["genes_high"]] <- gsedn[[paste0("dN_PC", i)]][["genes_high"]][!duplicated(names(gsedn[[paste0("dN_PC", i)]][["genes_high"]]))]
+		gsedn[[paste0("dN_PC", i)]][["gseGO_high"]] <- gseGO(geneList=gsedn[[paste0("dN_PC", i)]][["genes_high"]], ont ="ALL", keyType = "ALIAS", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, verbose = TRUE, OrgDb = organism, pAdjustMethod = "BH", scoreType = "pos")
+		transkg <- bitr(names(gsedn[[paste0("dN_PC", i)]][["genes_high"]]), fromType = "ALIAS", toType = "ENTREZID", OrgDb=organism)
+		transkgvect <- transkg[,2]
+		names(transkgvect) <- transkg[,1]
+		geneskg <- gsedn[[paste0("dN_PC", i)]][["genes_high"]]
+		names(geneskg) <- transkgvect[names(geneskg)]
+		gsedn[[paste0("dN_PC", i)]][["kegg_genes_high"]] <- geneskg <- geneskg[!duplicated(names(geneskg))]
+		gsedn[[paste0("dN_PC", i)]][["gseKEGG_high"]] <- gseKEGG(geneList = geneskg, organism = "gga", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, pAdjustMethod = "BH", keyType = "ncbi-geneid", scoreType = "pos")
+		 
+		gsedn[[paste0("dN_PC", i)]][["genes_low"]] <- sort((dnrates[which(dnrates[,i] < quantile(dnrates[,i], 0.2, na.rm = T)),i])*-1, decreasing = T)
+		gsedn[[paste0("dN_PC", i)]][["genes_low"]] <- gsedn[[paste0("dN_PC", i)]][["genes_low"]][!duplicated(names(gsedn[[paste0("dN_PC", i)]][["genes_low"]]))]
+		gsedn[[paste0("dN_PC", i)]][["gseGO_low"]] <- gseGO(geneList=gsedn[[paste0("dN_PC", i)]][["genes_low"]], ont ="ALL", keyType = "ALIAS", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, verbose = TRUE, OrgDb = organism, pAdjustMethod = "BH", scoreType = "pos")
+		transkg <- bitr(names(gsedn[[paste0("dN_PC", i)]][["genes_low"]]), fromType = "ALIAS", toType = "ENTREZID", OrgDb=organism)
+		transkgvect <- transkg[,2]
+		names(transkgvect) <- transkg[,1]
+		geneskg <- gsedn[[paste0("dN_PC", i)]][["genes_low"]]
+		names(geneskg) <- transkgvect[names(geneskg)]
+		gsedn[[paste0("dN_PC", i)]][["kegg_genes_low"]] <- geneskg <- geneskg[!duplicated(names(geneskg))]
+		gsedn[[paste0("dN_PC", i)]][["gseKEGG_low"]] <- gseKEGG(geneList = geneskg, organism = "gga", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, pAdjustMethod = "BH", keyType = "ncbi-geneid", scoreType = "pos")
+	}
+	
+	if(crxds$weighted.pca.clock.space$pPCs[i] < 0.01){
+		gseds[[paste0("dS_PC", i)]] <- list()
+		gseds[[paste0("dS_PC", i)]][["genes_high"]] <- sort(dsrates[which(dsrates[,i] > quantile(dsrates[,i], 0.8, na.rm = T)),i], decreasing = T)
+		gseds[[paste0("dS_PC", i)]][["genes_high"]] <- gseds[[paste0("dS_PC", i)]][["genes_high"]][!duplicated(names(gseds[[paste0("dS_PC", i)]][["genes_high"]]))]
+		gseds[[paste0("dS_PC", i)]][["gseGO_high"]] <- gseGO(geneList=gseds[[paste0("dS_PC", i)]][["genes_high"]], ont ="ALL", keyType = "ALIAS", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, verbose = TRUE, OrgDb = organism, pAdjustMethod = "BH", scoreType = "pos")
+		transkg <- bitr(names(gseds[[paste0("dS_PC", i)]][["genes_high"]]), fromType = "ALIAS", toType = "ENTREZID", OrgDb=organism)
+		transkgvect <- transkg[,2]
+		names(transkgvect) <- transkg[,1]
+		geneskg <- gseds[[paste0("dS_PC", i)]][["genes_high"]]
+		names(geneskg) <- transkgvect[names(geneskg)]
+		gseds[[paste0("dS_PC", i)]][["kegg_genes_high"]] <- geneskg <- geneskg[!duplicated(names(geneskg))]
+		gseds[[paste0("dS_PC", i)]][["gseKEGG_high"]] <- gseKEGG(geneList = geneskg, organism = "gga", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, pAdjustMethod = "BH", keyType = "ncbi-geneid", scoreType = "pos")
+		 
+		gseds[[paste0("dS_PC", i)]][["genes_low"]] <- sort((dsrates[which(dsrates[,i] < quantile(dsrates[,i], 0.2, na.rm = T)),i])*-1, decreasing = T)
+		gseds[[paste0("ds_PC", i)]][["genes_low"]] <- gseds[[paste0("dS_PC", i)]][["genes_low"]][!duplicated(names(gseds[[paste0("dS_PC", i)]][["genes_low"]]))]
+		gseds[[paste0("dS_PC", i)]][["gseGO_low"]] <- gseGO(geneList=gseds[[paste0("dS_PC", i)]][["genes_low"]], ont ="ALL", keyType = "ALIAS", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, verbose = TRUE, OrgDb = organism, pAdjustMethod = "BH", scoreType = "pos")
+		transkg <- bitr(names(gseds[[paste0("dS_PC", i)]][["genes_low"]]), fromType = "ALIAS", toType = "ENTREZID", OrgDb=organism)
+		transkgvect <- transkg[,2]
+		names(transkgvect) <- transkg[,1]
+		geneskg <- gseds[[paste0("dS_PC", i)]][["genes_low"]]
+		names(geneskg) <- transkgvect[names(geneskg)]
+		gseds[[paste0("dS_PC", i)]][["kegg_genes_low"]] <- geneskg <- geneskg[!duplicated(names(geneskg))]
+		gseds[[paste0("dS_PC", i)]][["gseKEGG_low"]] <- gseKEGG(geneList = geneskg, organism = "gga", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, pAdjustMethod = "BH", keyType = "ncbi-geneid", scoreType = "pos")
+	}
+	
+	if(crxdnds$weighted.pca.clock.space$pPCs[i] < 0.01){
+		gsednds[[paste0("dNdS_PC", i)]] <- list()
+		gsednds[[paste0("dNdS_PC", i)]][["genes_high"]] <- sort(dndsrates[which(dndsrates[,i] > quantile(dndsrates[,i], 0.8, na.rm = T)),i], decreasing = T)
+		gsednds[[paste0("dNdS_PC", i)]][["genes_high"]] <- gsednds[[paste0("dNdS_PC", i)]][["genes_high"]][!duplicated(names(gsednds[[paste0("dNdS_PC", i)]][["genes_high"]]))]
+		gsednds[[paste0("dNdS_PC", i)]][["gseGO_high"]] <- gseGO(geneList=gsednds[[paste0("dNdS_PC", i)]][["genes_high"]], ont ="ALL", keyType = "ALIAS", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, verbose = TRUE, OrgDb = organism, pAdjustMethod = "BH", scoreType = "pos")
+		transkg <- bitr(names(gsednds[[paste0("dNdS_PC", i)]][["genes_high"]]), fromType = "ALIAS", toType = "ENTREZID", OrgDb=organism)
+		transkgvect <- transkg[,2]
+		names(transkgvect) <- transkg[,1]
+		geneskg <- gsednds[[paste0("dNdS_PC", i)]][["genes_high"]]
+		gsednds[[paste0("dNdS_PC", i)]][["kegg_genes_high"]] <- names(geneskg) <- transkgvect[names(geneskg)]
+		geneskg <- geneskg[!duplicated(names(geneskg))]
+		gsednds[[paste0("dNdS_PC", i)]][["gseKEGG_high"]] <- gseKEGG(geneList = geneskg, organism = "gga", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, pAdjustMethod = "BH", keyType = "ncbi-geneid", scoreType = "pos")
+		 
+		gsednds[[paste0("dNdS_PC", i)]][["genes_low"]] <- sort((dndsrates[which(dndsrates[,i] < quantile(dndsrates[,i], 0.2, na.rm = T)),i])*-1, decreasing = T)
+		gsednds[[paste0("dNdS_PC", i)]][["genes_low"]] <- gsednds[[paste0("dNdS_PC", i)]][["genes_low"]][!duplicated(names(gsednds[[paste0("dNdS_PC", i)]][["genes_low"]]))]
+		gsednds[[paste0("dNdS_PC", i)]][["gseGO_low"]] <- gseGO(geneList=gsednds[[paste0("dNdS_PC", i)]][["genes_low"]], ont ="ALL", keyType = "ALIAS", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, verbose = TRUE, OrgDb = organism, pAdjustMethod = "BH", scoreType = "pos")
+		transkg <- bitr(names(gsednds[[paste0("dNdS_PC", i)]][["genes_low"]]), fromType = "ALIAS", toType = "ENTREZID", OrgDb=organism)
+		transkgvect <- transkg[,2]
+		names(transkgvect) <- transkg[,1]
+		geneskg <- gsednds[[paste0("dNdS_PC", i)]][["genes_low"]]
+		gsednds[[paste0("dNdS_PC", i)]][["kegg_genes_low"]] <- names(geneskg) <- transkgvect[names(geneskg)]
+		geneskg <- geneskg[!duplicated(names(geneskg))]
+		gsednds[[paste0("dNdS_PC", i)]][["gseKEGG_low"]] <- gseKEGG(geneList = geneskg, organism = "gga", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, pAdjustMethod = "BH", keyType = "ncbi-geneid", scoreType = "pos")
+	}
+}
+
+
+# Save genes and enrichment results
+
+save(gsedn, gseds, gsednds, file = "enrichment_data.Rdata")
+
+
+# Basic dot and ranks plots of enrichment results
+
+pdf("Fig_enrichment_dot_plots.pdf", height = 7, width = 7, useDingbats = F)
+for(i in 1:length(gsedn)){
+	try(print(dotplot(gsedn[[paste0("dN_PC", i)]][["gseGO_high"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dN PC", i, " high values - GO"))))
+	try(print(dotplot(gsedn[[paste0("dN_PC", i)]][["gseKEGG_high"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dN PC", i, " high values - KEGG"))))
+	try(print(dotplot(gsedn[[paste0("dN_PC", i)]][["gseGO_low"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dN PC", i, " low values - GO"))))
+	try(print(dotplot(gsedn[[paste0("dN_PC", i)]][["gseKEGG_low"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dN PC", i, " low values - KEGG"))))
+}
+for(i in 1:length(gseds)){
+	try(print(dotplot(gseds[[paste0("dS_PC", i)]][["gseGO_high"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dS PC", i, " high values - GO"))))
+	try(print(dotplot(gseds[[paste0("dS_PC", i)]][["gseKEGG_high"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dS PC", i, " high values - KEGG"))))
+	try(print(dotplot(gseds[[paste0("dS_PC", i)]][["gseGO_low"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dS PC", i, " low values - GO"))))
+	try(print(dotplot(gseds[[paste0("dS_PC", i)]][["gseKEGG_low"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dS PC", i, " low values - KEGG"))))
+}
+for(i in 1:length(gsednds)){
+	try(print(dotplot(gsednds[[paste0("dNdS_PC", i)]][["gseGO_high"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dNdS PC", i, " high values - GO"))))
+	try(print(dotplot(gsednds[[paste0("dNdS_PC", i)]][["gseKEGG_high"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dNdS PC", i, " high values - KEGG"))))
+	try(print(dotplot(gsednds[[paste0("dNdS_PC", i)]][["gseGO_low"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dNdS PC", i, " low values - GO"))))
+	try(print(dotplot(gsednds[[paste0("dNdS_PC", i)]][["gseKEGG_low"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dNdS PC", i, " low values - KEGG"))))
+}
+dev.off()
+
+pdf("Fig_enrichment_ranks_plots.pdf", height = 10, width = 15, useDingbats = F)
+for(i in 1:length(gsedn)){
+	try(print(gseaplot2(gsedn[[paste0("dN_PC", i)]][["gseGO_high"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dN PC", i, " high values - GO"), ES_geom = "dot")))
+	try(print(gseaplot2(gsedn[[paste0("dN_PC", i)]][["gseKEGG_high"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dN PC", i, " high values - KEGG"), ES_geom = "dot")))
+	try(print(gseaplot2(gsedn[[paste0("dN_PC", i)]][["gseGO_low"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dN PC", i, " low values - GO"), ES_geom = "dot")))
+	try(print(gseaplot2(gsedn[[paste0("dN_PC", i)]][["gseKEGG_low"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dN PC", i, " low values - KEGG"), ES_geom = "dot")))
+}
+for(i in 1:length(gseds)){
+	try(print(gseaplot2(gseds[[paste0("dS_PC", i)]][["gseGO_high"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dS PC", i, " high values - GO"), ES_geom = "dot")))
+	try(print(gseaplot2(gseds[[paste0("dS_PC", i)]][["gseKEGG_high"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dS PC", i, " high values - KEGG"), ES_geom = "dot")))
+	try(print(gseaplot2(gseds[[paste0("dS_PC", i)]][["gseGO_low"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dS PC", i, " low values - GO"), ES_geom = "dot")))
+	try(print(gseaplot2(gseds[[paste0("dS_PC", i)]][["gseKEGG_low"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dS PC", i, " low values - KEGG"), ES_geom = "dot")))
+}
+for(i in 1:length(gsednds)){
+	try(print(gseaplot2(gsednds[[paste0("dNdS_PC", i)]][["gseGO_high"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dNdS PC", i, " high values - GO"), ES_geom = "dot")))
+	try(print(gseaplot2(gsednds[[paste0("dNdS_PC", i)]][["gseKEGG_high"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dNdS PC", i, " high values - KEGG"), ES_geom = "dot")))
+	try(print(gseaplot2(gsednds[[paste0("dNdS_PC", i)]][["gseGO_low"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dNdS PC", i, " low values - GO"), ES_geom = "dot")))
+	try(print(gseaplot2(gsednds[[paste0("dNdS_PC", i)]][["gseKEGG_low"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dNdS PC", i, " low values - KEGG"), ES_geom = "dot")))
+}
+dev.off()
+
+
+# Produce the native KEGG plot (PNG)
+
+system("mkdir enrichment_pathways")
+setwd("enrichment_pathways")
+for(i in 1:length(gsedn)){
+	if(length(gsedn[[i]][["gseKEGG_high"]]$ID) > 0){
+		system(paste0("mkdir dn_high_pc", i)); setwd(paste0("dn_high_pc", i))
+		for(j in 1:length(gsedn[[i]][["gseKEGG_high"]]$ID)){
+			gga <- pathview(gene.data = gsedn[[i]][["kegg_genes_high"]], pathway.id = gsedn[[i]][["gseKEGG_high"]]$ID[j], species = "gga")
+			knitr::include_graphics(paste0(gsedn[[i]][["gseKEGG_high"]]$ID[j], ".pathview.png"))
+#			gga <- pathview(gene.data = gsedn[[i]][["kegg_genes_high"]], pathway.id = gsedn[[i]][["gseKEGG_high"]]$ID[j], species = "gga", kegg.native = F)
+#			knitr::include_graphics(paste0(gsedn[[i]][["gseKEGG_high"]]$ID[j], ".pathview.pdf"))
+		}
+		setwd("..")
+	}
+	if(length(gsedn[[i]][["gseKEGG_low"]]$ID) > 0){
+		system(paste0("mkdir dn_low_pc", i)); setwd(paste0("dn_low_pc", i))
+		for(j in 1:length(gsedn[[i]][["gseKEGG_low"]]$ID)){
+			gga <- pathview(gene.data = gsedn[[i]][["kegg_genes_low"]], pathway.id = gsedn[[i]][["gseKEGG_low"]]$ID[j], species = "gga")
+			knitr::include_graphics(paste0(gsedn[[i]][["gseKEGG_low"]]$ID[j], ".pathview.png"))
+#			gga <- pathview(gene.data = gsedn[[i]][["kegg_genes_low"]], pathway.id = gsedn[[i]][["gseKEGG_low"]]$ID[j], species = "gga", kegg.native = F)
+#			knitr::include_graphics(paste0(gsedn[[i]][["gseKEGG_low"]]$ID[j], ".pathview.pdf"))
+		}
+		setwd("..")
+	}
+	
+	if(length(gseds[[i]][["gseKEGG_high"]]$ID) > 0){
+		system(paste0("mkdir ds_high_pc", i)); setwd(paste0("ds_high_pc", i))
+		for(j in 1:length(gseds[[i]][["gseKEGG_high"]]$ID)){
+			gga <- pathview(gene.data = gseds[[i]][["kegg_genes_high"]], pathway.id = gseds[[i]][["gseKEGG_high"]]$ID[j], species = "gga")
+			knitr::include_graphics(paste0(gseds[[i]][["gseKEGG_high"]]$ID[j], ".pathview.png"))
+#			gga <- pathview(gene.data = gseds[[i]][["kegg_genes_high"]], pathway.id = gseds[[i]][["gseKEGG_high"]]$ID[j], species = "gga", kegg.native = F)
+#			knitr::include_graphics(paste0(gseds[[i]][["gseKEGG_high"]]$ID[j], ".pathview.pdf"))
+		}
+		setwd("..")
+	}
+	if(length(gseds[[i]][["gseKEGG_low"]]$ID) > 0){
+		system(paste0("mkdir ds_low_pc", i)); setwd(paste0("ds_low_pc", i))
+		for(j in 1:length(gseds[[i]][["gseKEGG_low"]]$ID)){
+			gga <- pathview(gene.data = gseds[[i]][["kegg_genes_low"]], pathway.id = gseds[[i]][["gseKEGG_low"]]$ID[j], species = "gga")
+			knitr::include_graphics(paste0(gseds[[i]][["gseKEGG_low"]]$ID[j], ".pathview.png"))
+#			gga <- pathview(gene.data = gseds[[i]][["kegg_genes_low"]], pathway.id = gseds[[i]][["gseKEGG_low"]]$ID[j], species = "gga", kegg.native = F)
+#			knitr::include_graphics(paste0(gseds[[i]][["gseKEGG_low"]]$ID[j], ".pathview.pdf"))
+		}
+		setwd("..")
+	}
+	
+	if(length(gsednds[[i]][["gseKEGG_high"]]$ID) > 0){
+		system(paste0("mkdir dnds_high_pc", i)); setwd(paste0("dnds_high_pc", i))
+		for(j in 1:length(gsednds[[i]][["gseKEGG_high"]]$ID)){
+			gga <- pathview(gene.data = gsednds[[i]][["kegg_genes_high"]], pathway.id = gsednds[[i]][["gseKEGG_high"]]$ID[j], species = "gga")
+			knitr::include_graphics(paste0(gsednds[[i]][["gseKEGG_high"]]$ID[j], ".pathview.png"))
+#			gga <- pathview(gene.data = gsednds[[i]][["kegg_genes_high"]], pathway.id = gsednds[[i]][["gseKEGG_high"]]$ID[j], species = "gga", kegg.native = F)
+#			knitr::include_graphics(paste0(gsednds[[i]][["gseKEGG_high"]]$ID[j], ".pathview.pdf"))
+		}
+		setwd("..")
+	}
+	if(length(gsednds[[i]][["gseKEGG_low"]]$ID) > 0){
+		system(paste0("mkdir dnds_low_pc", i)); setwd(paste0("dnds_low_pc", i))
+		for(j in 1:length(gsednds[[i]][["gseKEGG_low"]]$ID)){
+			gga <- pathview(gene.data = gsednds[[i]][["kegg_genes_low"]], pathway.id = gsednds[[i]][["gseKEGG_low"]]$ID[j], species = "gga")
+			knitr::include_graphics(paste0(gsednds[[i]][["gseKEGG_low"]]$ID[j], ".pathview.png"))
+#			gga <- pathview(gene.data = gsednds[[i]][["kegg_genes_low"]], pathway.id = gsednds[[i]][["gseKEGG_low"]]$ID[j], species = "gga", kegg.native = F)
+#			knitr::include_graphics(paste0(gsednds[[i]][["gseKEGG_low"]]$ID[j], ".pathview.pdf"))
+		}
+		setwd("..")
+	}
+}
+setwd("..")
+
+dme <- pathview(gene.data=kegg_gene_list, pathway.id="dme04130", species = kegg_organism)
+knitr::include_graphics("dme04130.pathview.png")
+
+# Consider using emmapplot and cnetplot figures to show the links between terms and genes associated with the main terms, respectively. What follows is sample code:
+
+dsgolo <- pairwise_termsim(gseds[['dS_PC1']][['gseGO_low']])
+emapplot(dsgolo, showCategory = 10, layout = 'kk')
+cnetplot(gseds[['dS_PC1']][['gseGO_low']], categorySize="pvalue", foldChange=gseds[['dS_PC1']][['genes_low']], showCategory = 3)
+
+
+######## Same Gene Set Enrichment Analysis as above but clumping top and bottom using 10% of each (i.e., two-tailed) - for exploration only
+
+organism <- "org.Gg.eg.db"
+gsedn <- list()
+gseds <- list()
+gsednds <- list()
+for(i in 1:20){
+	if(crxdn$weighted.pca.clock.space$pPCs[i] < 0.01){
+		gsedn[[paste0("dN_PC", i)]] <- list()
+		gsedn[[paste0("dN_PC", i)]][["genes"]] <- sort(c(dnrates[which(dnrates[,i] > quantile(dnrates[,i], 0.9, na.rm = T)),i], dnrates[which(dnrates[,i] < quantile(dnrates[,i], 0.1, na.rm = T)),i]), decreasing = T)
+		gsedn[[paste0("dN_PC", i)]][["genes"]] <- gsedn[[paste0("dN_PC", i)]][["genes"]][!duplicated(names(gsedn[[paste0("dN_PC", i)]][["genes"]]))]
+		gsedn[[paste0("dN_PC", i)]][["gseGO"]] <- gseGO(geneList=gsedn[[paste0("dN_PC", i)]][["genes"]], ont ="ALL", keyType = "ALIAS", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, verbose = TRUE, OrgDb = organism, pAdjustMethod = "BH", scoreType = "pos")
+		transkg <- bitr(names(gsedn[[paste0("dN_PC", i)]][["genes"]]), fromType = "ALIAS", toType = "ENTREZID", OrgDb=organism)
+		transkgvect <- transkg[,2]
+		names(transkgvect) <- transkg[,1]
+		geneskg <- gsedn[[paste0("dN_PC", i)]][["genes"]]
+		names(geneskg) <- transkgvect[names(geneskg)]
+		gsedn[[paste0("dN_PC", i)]][["kegg_genes"]] <- geneskg <- geneskg[!duplicated(names(geneskg))]
+		gsedn[[paste0("dN_PC", i)]][["gseKEGG"]] <- gseKEGG(geneList = geneskg, organism = "gga", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, pAdjustMethod = "BH", keyType = "ncbi-geneid", scoreType = "pos")
+	}
+	
+	if(crxds$weighted.pca.clock.space$pPCs[i] < 0.01){
+		gseds[[paste0("dS_PC", i)]] <- list()
+		gseds[[paste0("dS_PC", i)]][["genes"]] <- sort(c(dsrates[which(dsrates[,i] > quantile(dsrates[,i], 0.9, na.rm = T)),i], dsrates[which(dsrates[,i] < quantile(dsrates[,i], 0.1, na.rm = T)),i]), decreasing = T)
+		gseds[[paste0("dS_PC", i)]][["genes"]] <- gseds[[paste0("dS_PC", i)]][["genes"]][!duplicated(names(gseds[[paste0("dS_PC", i)]][["genes"]]))]
+		gseds[[paste0("dS_PC", i)]][["gseGO"]] <- gseGO(geneList=gseds[[paste0("dS_PC", i)]][["genes"]], ont ="ALL", keyType = "ALIAS", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, verbose = TRUE, OrgDb = organism, pAdjustMethod = "BH", scoreType = "pos")
+		transkg <- bitr(names(gseds[[paste0("dS_PC", i)]][["genes"]]), fromType = "ALIAS", toType = "ENTREZID", OrgDb=organism)
+		transkgvect <- transkg[,2]
+		names(transkgvect) <- transkg[,1]
+		geneskg <- gseds[[paste0("dS_PC", i)]][["genes"]]
+		names(geneskg) <- transkgvect[names(geneskg)]
+		gseds[[paste0("dS_PC", i)]][["kegg_genes"]] <- geneskg <- geneskg[!duplicated(names(geneskg))]
+		gseds[[paste0("dS_PC", i)]][["gseKEGG"]] <- gseKEGG(geneList = geneskg, organism = "gga", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, pAdjustMethod = "BH", keyType = "ncbi-geneid", scoreType = "pos")
+	}
+	
+	if(crxdnds$weighted.pca.clock.space$pPCs[i] < 0.01){
+		gsednds[[paste0("dNdS_PC", i)]] <- list()
+		gsednds[[paste0("dNdS_PC", i)]][["genes"]] <- sort(c(dndsrates[which(dndsrates[,i] > quantile(dndsrates[,i], 0.9, na.rm = T)),i], dndsrates[which(dndsrates[,i] < quantile(dndsrates[,i], 0.1, na.rm = T)),i]), decreasing = T)
+		gsednds[[paste0("dNdS_PC", i)]][["genes"]] <- gsednds[[paste0("dNdS_PC", i)]][["genes"]][!duplicated(names(gsednds[[paste0("dNdS_PC", i)]][["genes"]]))]
+		gsednds[[paste0("dNdS_PC", i)]][["gseGO"]] <- gseGO(geneList=gsednds[[paste0("dNdS_PC", i)]][["genes"]], ont ="ALL", keyType = "ALIAS", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, verbose = TRUE, OrgDb = organism, pAdjustMethod = "BH", scoreType = "pos")
+		transkg <- bitr(names(gsednds[[paste0("dNdS_PC", i)]][["genes"]]), fromType = "ALIAS", toType = "ENTREZID", OrgDb=organism)
+		transkgvect <- transkg[,2]
+		names(transkgvect) <- transkg[,1]
+		geneskg <- gsednds[[paste0("dNdS_PC", i)]][["genes"]]
+		gsednds[[paste0("dNdS_PC", i)]][["kegg_genes"]] <- names(geneskg) <- transkgvect[names(geneskg)]
+		geneskg <- geneskg[!duplicated(names(geneskg))]
+		gsednds[[paste0("dNdS_PC", i)]][["gseKEGG"]] <- gseKEGG(geneList = geneskg, organism = "gga", minGSSize = 3, maxGSSize = 800, pvalueCutoff = 0.01, pAdjustMethod = "BH", keyType = "ncbi-geneid", scoreType = "pos")
+	}
+}
+
+
+# Save genes and two-tailed enrichment results
+
+save(gsedn, gseds, gsednds, file = "enrichment_data_two_tailed.Rdata")
+
+
+# Make dot plots of two-tailed enriched pathways
+
+pdf("Fig_enrichment_dot_plots_two_tailed.pdf", height = 7, width = 7, useDingbats = F)
+for(i in 1:length(gsedn)){
+	try(print(dotplot(gsedn[[paste0("dN_PC", i)]][["gseGO"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dN PC", i, " two-tailed values - GO"))))
+	try(print(dotplot(gsedn[[paste0("dN_PC", i)]][["gseKEGG"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dN PC", i, " two-tailed values - KEGG"))))
+	}
+for(i in 1:length(gseds)){
+	try(print(dotplot(gseds[[paste0("dS_PC", i)]][["gseGO"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dS PC", i, " two-tailed values - GO"))))
+	try(print(dotplot(gseds[[paste0("dS_PC", i)]][["gseKEGG"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dS PC", i, " two-tailed values - KEGG"))))
+	}
+for(i in 1:length(gsednds)){
+	try(print(dotplot(gsednds[[paste0("dNdS_PC", i)]][["gseGO"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dNdS PC", i, " two-tailed values - GO"))))
+	try(print(dotplot(gsednds[[paste0("dNdS_PC", i)]][["gseKEGG"]], showCategory=10, split=".sign") + facet_grid(.~.sign) + ggtitle(paste0("dNdS PC", i, " two-tailed values - KEGG"))))
+	}
+dev.off()
+
+pdf("Fig_enrichment_ranks_plots_two_tailed.pdf", height = 10, width = 15, useDingbats = F)
+for(i in 1:length(gsedn)){
+	try(print(gseaplot2(gsedn[[paste0("dN_PC", i)]][["gseGO"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dN PC", i, " two-tailed values - GO"), ES_geom = "dot")))
+	try(print(gseaplot2(gsedn[[paste0("dN_PC", i)]][["gseKEGG"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dN PC", i, " two-tailed values - KEGG"), ES_geom = "dot")))
+}
+for(i in 1:length(gseds)){
+	try(print(gseaplot2(gseds[[paste0("dS_PC", i)]][["gseGO"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dS PC", i, " two-tailed values - GO"), ES_geom = "dot")))
+	try(print(gseaplot2(gseds[[paste0("dS_PC", i)]][["gseKEGG"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dS PC", i, " two-tailed values - KEGG"), ES_geom = "dot")))
+}
+for(i in 1:length(gsednds)){
+	try(print(gseaplot2(gsednds[[paste0("dNdS_PC", i)]][["gseGO"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dNdS PC", i, " two-tailed values - GO"), ES_geom = "dot")))
+	try(print(gseaplot2(gsednds[[paste0("dNdS_PC", i)]][["gseKEGG"]], geneSetID = 1:3, pvalue_table = TRUE, title = paste0("dNdS PC", i, " two-tailed values - KEGG"), ES_geom = "dot")))
+}
+dev.off()
+
+
+# Produce the native KEGG plots for two-tailed analyses (PNG)
+
+system("mkdir enrichment_pathways_two_tailed")
+setwd("enrichment_pathways_two_tailed")
+for(i in 1:length(gsedn)){
+	if(length(gsedn[[i]][["gseKEGG"]]$ID) > 0){
+		system(paste0("mkdir dn_pc", i)); setwd(paste0("dn_pc", i))
+		for(j in 1:length(gsedn[[i]][["gseKEGG"]]$ID)){
+			gga <- pathview(gene.data = gsedn[[i]][["kegg_genes"]], pathway.id = gsedn[[i]][["gseKEGG"]]$ID[j], species = "gga")
+			knitr::include_graphics(paste0(gsedn[[i]][["gseKEGG"]]$ID[j], ".pathview.png"))
+#			gga <- pathview(gene.data = gsedn[[i]][["kegg_genes"]], pathway.id = gsedn[[i]][["gseKEGG"]]$ID[j], species = "gga", kegg.native = F)
+#			knitr::include_graphics(paste0(gsedn[[i]][["gseKEGG"]]$ID[j], ".pathview.pdf"))
+		}
+		setwd("..")
+	}
+	
+	if(length(gseds[[i]][["gseKEGG"]]$ID) > 0){
+		system(paste0("mkdir ds_pc", i)); setwd(paste0("ds_pc", i))
+		for(j in 1:length(gseds[[i]][["gseKEGG"]]$ID)){
+			gga <- pathview(gene.data = gseds[[i]][["kegg_genes"]], pathway.id = gseds[[i]][["gseKEGG"]]$ID[j], species = "gga")
+			knitr::include_graphics(paste0(gseds[[i]][["gseKEGG"]]$ID[j], ".pathview.png"))
+#			gga <- pathview(gene.data = gseds[[i]][["kegg_genes"]], pathway.id = gseds[[i]][["gseKEGG"]]$ID[j], species = "gga", kegg.native = F)
+#			knitr::include_graphics(paste0(gseds[[i]][["gseKEGG"]]$ID[j], ".pathview.pdf"))
+		}
+		setwd("..")
+	}
+	
+	if(length(gsednds[[i]][["gseKEGG"]]$ID) > 0){
+		system(paste0("mkdir dnds_pc", i)); setwd(paste0("dnds_pc", i))
+		for(j in 1:length(gsednds[[i]][["gseKEGG"]]$ID)){
+			gga <- pathview(gene.data = gsednds[[i]][["kegg_genes"]], pathway.id = gsednds[[i]][["gseKEGG"]]$ID[j], species = "gga")
+			knitr::include_graphics(paste0(gsednds[[i]][["gseKEGG"]]$ID[j], ".pathview.png"))
+#			gga <- pathview(gene.data = gsednds[[i]][["kegg_genes"]], pathway.id = gsednds[[i]][["gseKEGG"]]$ID[j], species = "gga", kegg.native = F)
+#			knitr::include_graphics(paste0(gsednds[[i]][["gseKEGG"]]$ID[j], ".pathview.pdf"))
+		}
+		setwd("..")
+	}
+}
+setwd("..")
+
+######## End of two-tailed analyses
+
+
+# Test whether particular chromosomes are over-represented in the top and bottom of significant PCs
+
+chromstab <- read.table("../chromosome_locations.txt",header = T)
+rownames(chromstab) <- chromstab$GALGAL_ID
+
+rownames(crxdn$weighted.pca.clock.space$empPCA$x) <- rownames(crxds$weighted.pca.clock.space$empPCA$x) <- rownames(crxdnds$weighted.pca.clock.space$empPCA$x) <- gsub(".c123.ginsi_family_filtered_dN.tre|.c123.ginsi_family_filtered_dS.tre", "", rownames(crxdn$weighted.pca.clock.space$empPCA$x))
+rownames(crxran1$weighted.pca.clock.space$empPCA$x) <- names(rantrs1)
+
+chromsran <- gsub("[.]/", "", sapply(names(rantrs1), function(x) strsplit(x, split = "_")[[1]][1]))
+
+# Change depending on analyses with fixed/free topology per locus.
+# dN has 8 significant PCs fixedtopo and 10 freetopo
+# dS has 10 significant PCs fixedtopo and 12 freetopo
+# dNdS has 7 significant PCs fixedtopo and 6 freetopo
+# ran has 16 significant PCs fixedtopo and 11 freetopo
+chroms <- c(paste0("chr", 1:28), "chrZ")
+chrompcdnhigh <- matrix(NA, nrow = length(chroms), ncol = 10)
+chrompcdshigh <- matrix(NA, nrow = length(chroms), ncol = 12)
+chrompcdndshigh <- matrix(NA, nrow = length(chroms), ncol = 6)
+chrompcranhigh <- matrix(NA, nrow = length(chroms), ncol = 11)
+chrompcdnlow <- matrix(NA, nrow = length(chroms), ncol = 10)
+chrompcdslow <- matrix(NA, nrow = length(chroms), ncol = 12)
+chrompcdndslow <- matrix(NA, nrow = length(chroms), ncol = 6)
+chrompcranlow <- matrix(NA, nrow = length(chroms), ncol = 11)
+
+rownames(chrompcdnhigh) <- rownames(chrompcdshigh) <- rownames(chrompcdndshigh) <- rownames(chrompcdnlow) <- rownames(chrompcdslow) <- rownames(chrompcdndslow) <- rownames(chrompcranhigh) <- rownames(chrompcranlow) <- chroms
+
+for(i in 1:ncol(chrompcdnhigh)){
+	rates <- crxdn$weighted.pca.clock.space$empPCA$x
+	pchigh <- chromstab[names(rates[which(rates[,i] > quantile(rates[,i], 0.8)),i]), "chr"]
+	pclow <- chromstab[names(rates[which(rates[,i] < quantile(rates[,i], 0.2)),i]), "chr"]
+	for(j in 1:length(chroms)){
+		chrompcdnhigh[j, i] <- binom.test(length(which(pchigh == chroms[j])), length(pchigh), p = length(which(chromstab[rownames(rates), "chr"] == chroms[j])) / nrow(rates), alternative = "greater")$p.value
+		chrompcdnlow[j, i] <- binom.test(length(which(pclow == chroms[j])), length(pclow), p = length(which(chromstab[rownames(rates), "chr"] == chroms[j])) / nrow(rates), alternative = "greater")$p.value
+	}
+	chrompcdnhigh[, i] <- p.adjust(chrompcdnhigh[, i], method = "fdr")
+	chrompcdnlow[, i] <- p.adjust(chrompcdnhigh[, i], method = "fdr")
+}
+
+for(i in 1:ncol(chrompcdshigh)){
+	rates <- crxds$weighted.pca.clock.space$empPCA$x
+	pchigh <- chromstab[names(rates[which(rates[,i] > quantile(rates[,i], 0.8)),i]), "chr"]
+	pclow <- chromstab[names(rates[which(rates[,i] < quantile(rates[,i], 0.2)),i]), "chr"]
+	for(j in 1:length(chroms)){
+		chrompcdshigh[j, i] <- binom.test(length(which(pchigh == chroms[j])), length(pchigh), p = length(which(chromstab[rownames(rates), "chr"] == chroms[j])) / nrow(rates), alternative = "greater")$p.value
+		chrompcdslow[j, i] <- binom.test(length(which(pclow == chroms[j])), length(pclow), p = length(which(chromstab[rownames(rates), "chr"] == chroms[j])) / nrow(rates), alternative = "greater")$p.value
+	}
+	chrompcdshigh[, i] <- p.adjust(chrompcdshigh[, i], method = "fdr")
+	chrompcdslow[, i] <- p.adjust(chrompcdshigh[, i], method = "fdr")
+}
+
+for(i in 1:ncol(chrompcdndshigh)){
+	rates <- crxdnds$weighted.pca.clock.space$empPCA$x
+	pchigh <- chromstab[names(rates[which(rates[,i] > quantile(rates[,i], 0.8)),i]), "chr"]
+	pclow <- chromstab[names(rates[which(rates[,i] < quantile(rates[,i], 0.2)),i]), "chr"]
+	for(j in 1:length(chroms)){
+		chrompcdndshigh[j, i] <- binom.test(length(which(pchigh == chroms[j])), length(pchigh), p = length(which(chromstab[rownames(rates), "chr"] == chroms[j])) / nrow(rates), alternative = "greater")$p.value
+		chrompcdndslow[j, i] <- binom.test(length(which(pclow == chroms[j])), length(pclow), p = length(which(chromstab[rownames(rates), "chr"] == chroms[j])) / nrow(rates), alternative = "greater")$p.value
+	}
+	chrompcdndshigh[, i] <- p.adjust(chrompcdndshigh[, i], method = "fdr")
+	chrompcdndslow[, i] <- p.adjust(chrompcdndshigh[, i], method = "fdr")
+}
+
+for(i in 1:ncol(chrompcranhigh)){
+	rates <- crxran1$weighted.pca.clock.space$empPCA$x
+	pchigh <- chromsran[rownames(rates)[which(rates[,i] > quantile(rates[,i], 0.8))]]
+	pclow <- chromsran[rownames(rates)[which(rates[,i] < quantile(rates[,i], 0.2))]]
+	for(j in 1:length(chroms)){
+		chrompcranhigh[j, i] <- binom.test(length(which(pchigh == chroms[j])), length(pchigh), p = length(which(chromsran == chroms[j])) / nrow(rates), alternative = "greater")$p.value
+		chrompcranlow[j, i] <- binom.test(length(which(pclow == chroms[j])), length(pclow), p = length(which(chromstab == chroms[j])) / nrow(rates), alternative = "greater")$p.value
+	}
+	chrompcranhigh[, i] <- p.adjust(chrompcranhigh[, i], method = "fdr")
+	chrompcranlow[, i] <- p.adjust(chrompcranhigh[, i], method = "fdr")
+}
+
+save(chrompcdnhigh, chrompcdnlow, chrompcdshigh, chrompcdslow, chrompcdndshigh, chrompcdndslow, chrompcranhigh, chrompcranlow, file = "chroms_pc_pvals.Rdata")
+
+
+# Plot heatmaps of p-values per chromosome per principal component extremes
+
+pdf("Fig_chroms_pc_pvals_transposed.pdf", useDingbats = F, height = 5, width = 5)
+heatmap(t(log(chrompcdnhigh)), Rowv = NA, Colv = NA, scale = "none", ylab = "PC", xlab = "Chromosome", main = "dN high rates")
+heatmap(t(log(chrompcdnlow)), Rowv = NA, Colv = NA, scale = "none", ylab = "PC", xlab = "Chromosome", main = "dN low rates")
+heatmap(t(log(chrompcdshigh)), Rowv = NA, Colv = NA, scale = "none", ylab = "PC", xlab = "Chromosome", main = "dS high rates")
+heatmap(t(log(chrompcdslow)), Rowv = NA, Colv = NA, scale = "none", ylab = "PC", xlab = "Chromosome", main = "dS low rates")
+heatmap(t(log(chrompcdndshigh)), Rowv = NA, Colv = NA, scale = "none", ylab = "PC", xlab = "Chromosome", main = "dNdS high rates")
+heatmap(t(log(chrompcdndslow)), Rowv = NA, Colv = NA, scale = "none", ylab = "PC", xlab = "Chromosome", main = "dNdS low rates")
+heatmap(t(log(chrompcranhigh)), Rowv = NA, Colv = NA, scale = "none", ylab = "PC", xlab = "Chromosome", main = "Ran high rates")
+heatmap(t(log(chrompcranlow)), Rowv = NA, Colv = NA, scale = "none", ylab = "PC", xlab = "Chromosome", main = "Ran low rates")
+dev.off()

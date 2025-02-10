@@ -1,0 +1,102 @@
+library(phangorn)
+library(ClockstaRX)
+library(ggplot2)
+library(reshape2)
+library(viridis)
+library(RColorBrewer)
+library(tidyverse)
+library(phylolm)
+library(ggridges)
+library(gridExtra)
+library(plotly)
+library(crosstalk)
+library(MuMIn)
+source("brsPerTslice.R")
+load("alltrs.Rdata")
+load("crx_dn.Rdata")
+load("crx_ds.Rdata")
+load("crx_dnds.Rdata")
+load("crx_ran1.Rdata")
+
+
+# Extract ClockstaRX output, including adding locus names.
+
+sptr_unr <- unroot(sptr)
+rownames(crxdn[[1]]) <- names(dntrs)
+rownames(crxds[[1]]) <- names(dstrs)
+rownames(crxdnds[[1]]) <- names(dntrs)
+set.seed(1234)
+rownames(crxran1[[1]]) <- names(sample(rantrs, 10000))
+colnames(crxdn[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxds[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxdnds[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+colnames(crxran1[[1]])[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+
+
+# Extract raw rates for tips.
+
+taxdn <- crxdn[[1]][,which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))]
+taxds <- crxds[[1]][,which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))]
+taxdnds <- crxdnds[[1]][,which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))]
+taxran <- crxran1[[1]][,which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))]
+
+
+# Melt data into single table with all rates data.
+
+alltaxrates <- cbind(rbind(melt(taxdn), melt(taxds), melt(taxdnds), melt(taxran)), c(rep("dn", nrow(taxdn)*ncol(taxdn)), rep("ds", nrow(taxds)*ncol(taxds)), rep("dnds", nrow(taxdnds)*ncol(taxdnds)), rep("ran", nrow(taxran)*ncol(taxran))))
+colnames(alltaxrates) <- c("locus", "species", "rate", "regiontype")
+
+
+# Make plots of rates per species per data set - for exploration only.
+
+alltaxrates$species <- factor(alltaxrates$species, levels = colnames(taxran)[order(apply(taxran, 2, median, na.rm = T))])
+pdf("rates_per_species_ran.pdf", width = 30, height = 7, useDingbats = F)
+ggplot(alltaxrates, aes(x = species, y = log(rate), fill = regiontype)) + geom_boxplot(coef = 100) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust=0)) + scale_fill_viridis_d()
+dev.off()
+
+alltaxrates$species <- factor(alltaxrates$species, levels = colnames(taxdn)[order(apply(taxdn, 2, median, na.rm = T))])
+pdf("rates_per_species_dn.pdf", width = 30, height = 7, useDingbats = F)
+ggplot(alltaxrates, aes(x = species, y = log(rate), fill = regiontype)) + geom_boxplot(coef = 100) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust=0)) + scale_fill_viridis_d()
+dev.off()
+
+alltaxrates$species <- factor(alltaxrates$species, levels = colnames(taxds)[order(apply(taxds, 2, median, na.rm = T))])
+pdf("rates_per_species_ds.pdf", width = 30, height = 7, useDingbats = F)
+ggplot(alltaxrates, aes(x = species, y = log(rate), fill = regiontype)) + geom_boxplot(coef = 100) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust=0)) + scale_fill_viridis_d()
+dev.off()
+
+alltaxrates$species <- factor(alltaxrates$species, levels = colnames(taxdnds)[order(apply(taxdnds, 2, median, na.rm = T))])
+pdf("rates_per_species_dnds.pdf", width = 30, height = 7, useDingbats = F)
+ggplot(alltaxrates, aes(x = species, y = log(rate), fill = regiontype)) + geom_boxplot(coef = 100) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust=0)) + scale_fill_viridis_d()
+dev.off()
+
+
+# Make data set of median rates per tip.
+
+medianrates <- as.data.frame(cbind(apply(taxdn, 2, median, na.rm = T), apply(taxds, 2, median, na.rm = T), apply(taxdnds, 2, median, na.rm = T), apply(taxran, 2, median, na.rm = T)))
+colnames(medianrates) <- c("dn", "ds", "dnds", "ran")
+
+
+# Incorporate data on loadings (rotation) of tips across significant PCs.
+
+Npcsdn <- which(crxdn$weighted.pca.clock.space$pPCs > 0.01)[1] - 1
+dnpcs <- crxdn$weighted.pca.clock.space$empPCA$rotation[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr)) ,1:Npcsdn]
+colnames(dnpcs) <- paste0(colnames(dnpcs), ".dn")
+rownames(dnpcs) <- sptr_unr$tip.label
+
+Npcsds <- which(crxds$weighted.pca.clock.space$pPCs > 0.01)[1] - 1
+dspcs <- crxds$weighted.pca.clock.space$empPCA$rotation[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr)) ,1:Npcsds]
+colnames(dspcs) <- paste0(colnames(dspcs), ".ds")
+rownames(dspcs) <- sptr_unr$tip.label
+
+Npcsdnds <- which(crxdnds$weighted.pca.clock.space$pPCs > 0.01)[1] - 1
+dndspcs <- crxdnds$weighted.pca.clock.space$empPCA$rotation[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr)) ,1:Npcsdnds]
+colnames(dndspcs) <- paste0(colnames(dndspcs), ".dnds")
+rownames(dndspcs) <- sptr_unr$tip.label
+
+Npcsran <- which(crxran1$weighted.pca.clock.space$pPCs > 0.01)[1] - 1
+ranpcs <- crxran1$weighted.pca.clock.space$empPCA$rotation[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr)) ,1:Npcsran]
+colnames(ranpcs) <- paste0(colnames(ranpcs), ".ran")
+rownames(ranpcs) <- sptr_unr$tip.label
+
+medianrates <- cbind(medianrates, dnpcs, dspcs, dndspcs, ranpcs)
+

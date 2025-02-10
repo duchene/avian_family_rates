@@ -1,0 +1,113 @@
+library(phangorn)
+library(phytools)
+library(colourvalues)
+library(viridis)
+load("alltrs.Rdata")
+load("crx_dn.Rdata")
+load("crx_ds.Rdata")
+load("crx_dnds.Rdata")
+load("crx_ran.Rdata")
+
+
+# Load trait and taxonomy data
+
+sptr_unr <- unroot(sptr)
+taxcode <- read.csv("taxonomy_codes.csv", header = T, row.names = 1)[sptr$tip.label,]
+dat <- read.csv("218family_means_vars.csv", header = T, row.names = 1)[taxcode$family,]
+
+
+# Log transform variables where appropriate
+
+tars <- log(dat$mean.Tarsus.Length)
+names(tars) <- rownames(dat)
+sptr$tip.label <- taxcode[sptr$tip.label,"family"]
+clutch <- log(dat$mean.clutch.size)
+clutch[is.na(clutch)] <- mean(clutch, na.rm = T)
+names(clutch) <- rownames(dat)
+brain <- log(dat$mean.Brain.Mass..g.)
+brain[is.na(brain)] <- mean(brain, na.rm = T)
+names(brain) <- rownames(dat)
+beakd <- log(dat$mean.Beak.Depth)
+beakd[is.na(beakd)] <- mean(beakd, na.rm = T)
+names(beakd) <- rownames(dat)
+genlen <- log(dat$mean.GenLength)
+genlen[is.na(genlen)] <- mean(genlen, na.rm = T)
+names(genlen) <- rownames(dat)
+crxran1$raw.rates.matrix[which(crxran1$raw.rates.matrix > 0.5)] <- NA
+crxdn$raw.rates.matrix[which(crxdn$raw.rates.matrix > 2)] <- NA
+crxds$raw.rates.matrix[which(crxds$raw.rates.matrix > 2)] <- NA
+
+
+# Plot phylogenetic trees coloured by rate variables
+
+pdf("Fig_sptr_data.pdf", height = 25, width = 10, useDingbats = T)
+plot(sptr_unr, cex = 0.7, main = "Brach ID", edge.width = 3)
+edgelabels(bg = "white", cex = 0.5)
+
+ranbrsampling <- apply(crxran1$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))
+names(ranbrsampling)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+plot(sptr_unr, cex = 0.7, main = "N rates sampled from random regions", edge.width = 3)
+edgelabels(ranbrsampling, bg = "white", cex = 0.5)
+
+dndsbrsampling <- apply(crxdnds$raw.rates.matrix, 2, function(x) length(which(!is.na(x))))
+names(dndsbrsampling)[which(sptr_unr$edge[,2] %in% 1:Ntip(sptr_unr))] <- sptr_unr$tip.label
+plot(sptr_unr, cex = 0.7, main = "N dN/dS sampled", edge.width = 3)
+edgelabels(dndsbrsampling, bg = "white", cex = 0.5)
+
+contMap(sptr, clutch, type = "phylogram", outline = F, fsize = 0.7)
+contMap(sptr, tars, type = "phylogram", outline = F, fsize = 0.7)
+contMap(sptr, brain, type = "phylogram", outline = F, fsize = 0.7)
+
+plot(sptr_unr, type = "phylogram", cex = 0.4, edge.width = 3, edge.color= colour_values(crxdnds$weighted.pca.clock.space$empPCA$rotation[,1]^2, palette = 'viridis'), main = "dN PC1")
+plot(sptr_unr, type = "phylogram", cex = 0.7, edge.width = 3, edge.color= colour_values(crxdnds$weighted.pca.clock.space$empPCA$rotation[,1]^2, palette = 'viridis'), main = "dNdS PC1")
+plot(sptr_unr, type = "phylogram", cex = 0.7, edge.width = 3, edge.color= colour_values(crxdnds$weighted.pca.clock.space$empPCA$rotation[,3]^2, palette = 'viridis'), main = "dNdS PC3")
+
+plot(sptr_unr, type = "phylogram", cex = 0.7, edge.width = 3, edge.color= colour_values(colMeans(log(crxran1$raw.rates.matrix), na.rm = T), palette = 'viridis'), main = "Mean rates across random regions")
+plot(sptr_unr, type = "phylogram", cex = 0.7, edge.width = 3, edge.color= colour_values(colMeans(log(crxdnds$raw.rates.matrix), na.rm = T), palette = 'viridis'), main = "Mean dNdS")
+plot(sptr_unr, type = "phylogram", cex = 0.7, edge.width = 3, edge.color= colour_values(colMeans(log(crxds$raw.rates.matrix), na.rm = T), palette = 'viridis'), main = "Mean dS")
+
+dev.off()
+
+
+# Plot phylogenetic trees coloured by a subset of trait variables
+
+pdf("Fig_traits_trees.pdf", height = 7, width = 7, useDingbats = T)
+contclutch <- contMap(sptr, clutch, plot = F)
+conttars <- contMap(sptr, tars, plot = F)
+contbrain <- contMap(sptr, brain, plot = F)
+contbeakd <- contMap(sptr, beakd, plot = F)
+contgenlen <- contMap(sptr, genlen, plot = F)
+n <- length(contclutch$cols)
+contclutch$cols[1:n] <- conttars$cols[1:n] <- contbrain$cols[1:n] <- contbeakd$cols[1:n] <- contgenlen$cols[1:n] <- colorRampPalette(c("#000004", "#51127c", "#b73779", "#fc8961", "#fcfdbf"), space = "Lab")(n)
+plot(contclutch, type = "fan", outline = F, fsize = 0.7, leg.txt="Log clutch size")
+plot(conttars, type = "fan", outline = F, fsize = 0.7, leg.txt="Log tarsus length")
+plot(contbrain, type = "fan", outline = F, fsize = 0.7, leg.txt="Log brain mass")
+plot(contbeakd, type = "fan", outline = F, fsize = 0.7, leg.txt="Log beak depth")
+plot(contgenlen, type = "fan", outline = F, fsize = 0.7, leg.txt="Log generation length")
+
+clutchcor <- residuals(lm(clutch ~ log(dat$mean.Mass)))
+names(clutchcor) <- rownames(dat)
+tarscor <- residuals(lm(tars ~ log(dat$mean.Mass)))
+names(tarscor) <- rownames(dat)
+braincor <- residuals(lm(brain ~ log(dat$mean.Mass)))
+names(braincor) <- rownames(dat)
+beakdcor <- residuals(lm(beakd ~ log(dat$mean.Mass)))
+names(beakdcor) <- rownames(dat)
+genlencor <- residuals(lm(genlen ~ log(dat$mean.Mass)))
+names(genlencor) <- rownames(dat)
+
+contclutch <- contMap(sptr, clutchcor, plot = F)
+conttars <- contMap(sptr, tarscor, plot = F)
+contbrain <- contMap(sptr, braincor, plot = F)
+contbeakd <- contMap(sptr, beakdcor, plot = F)
+contgenlen <- contMap(sptr, genlencor, plot = F)
+n <- length(contclutch$cols)
+contclutch$cols[1:n] <- conttars$cols[1:n] <- contbrain$cols[1:n] <- contbeakd$cols[1:n] <- contgenlen$cols[1:n] <- colorRampPalette(c("#000004", "#51127c", "#b73779", "#fc8961", "#fcfdbf"), space = "Lab")(n)
+plot(contclutch, type = "fan", outline = F, fsize = 0.7, leg.txt="Log clutch size resid")
+plot(conttars, type = "fan", outline = F, fsize = 0.7, leg.txt="Log tarsus length resid")
+plot(contbrain, type = "fan", outline = F, fsize = 0.7, leg.txt="Log brain mass resid")
+plot(contbeakd, type = "fan", outline = F, fsize = 0.7, leg.txt="Log beak depth resid")
+plot(contgenlen, type = "fan", outline = F, fsize = 0.7, leg.txt="Log generation length resid")
+
+dev.off()
+
