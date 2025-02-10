@@ -2,7 +2,7 @@
 
 This repository contains the following files:
 
-**Supp_Data_1_trait_data** - Descriptions of each of the trait variables considered including sources, and files including the raw trait and molecular rates data. For replicating the analyses in the study, it is advisable to use the data in the Supp_Data_3_data_sets_for_regression folder.
+**Supp_Data_1_trait_data** - Descriptions of each of the trait variables considered including sources, and files including the raw trait and molecular rates data. For replicating the analyses in the study, it is advisable to use the data in the Supp_Data_2_data_sets_for_regression folder.
 
 **Supp_Data_2_data_sets_for_regression** - csv data files as used in scripts for running regression and random forest analyses.
 
